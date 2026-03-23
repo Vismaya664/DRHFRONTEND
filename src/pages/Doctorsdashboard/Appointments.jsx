@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getDoctorAppointments } from "../../api/api";
 import "../../style/Doctordashboard/Appointments.scss";
 import Doctorssidebar from "../../components/doctorssidebar";
 
@@ -52,32 +53,14 @@ const EmptyIcon = () => (
   </svg>
 );
 
-const APPOINTMENTS_DATA = [
-  { id:  1, name: "Amal Kumar",       phone: "7826810900", email: "amal@email.com",       dept: "DERMATOLOGY",   apptDate: "3/12/2026", apptTime: "10:00:00 AM", status: "pending",    bookedOn: "3/10/2026" },
-  { id:  2, name: "Sarah Mitchell",   phone: "9845612300", email: "sarah.m@email.com",    dept: "CARDIOLOGY",    apptDate: "3/12/2026", apptTime: "11:00:00 AM", status: "confirmed",  bookedOn: "3/09/2026" },
-  { id:  3, name: "Robert Chen",      phone: "8123456789", email: "robert.c@email.com",   dept: "NEUROLOGY",     apptDate: "3/12/2026", apptTime: "12:30:00 PM", status: "completed",  bookedOn: "3/08/2026" },
-  { id:  4, name: "Maria Gonzalez",   phone: "7712345678", email: "N/A",                  dept: "ORTHOPEDICS",   apptDate: "3/13/2026", apptTime: "09:00:00 AM", status: "confirmed",  bookedOn: "3/10/2026" },
-  { id:  5, name: "James Warren",     phone: "9900112233", email: "james.w@email.com",    dept: "CARDIOLOGY",    apptDate: "3/13/2026", apptTime: "02:00:00 PM", status: "pending",    bookedOn: "3/11/2026" },
-  { id:  6, name: "Emily Clark",      phone: "8866554433", email: "emily.c@email.com",    dept: "PEDIATRICS",    apptDate: "3/13/2026", apptTime: "03:30:00 PM", status: "rescheduled",bookedOn: "3/07/2026" },
-  { id:  7, name: "David Kim",        phone: "7741236900", email: "david.k@email.com",    dept: "GENERAL",       apptDate: "3/14/2026", apptTime: "10:30:00 AM", status: "confirmed",  bookedOn: "3/10/2026" },
-  { id:  8, name: "Linda Park",       phone: "9988776655", email: "linda.p@email.com",    dept: "OPHTHALMOLOGY", apptDate: "3/14/2026", apptTime: "11:30:00 AM", status: "pending",    bookedOn: "3/11/2026" },
-  { id:  9, name: "Thomas Brown",     phone: "7823001122", email: "thomas.b@email.com",   dept: "ONCOLOGY",      apptDate: "3/14/2026", apptTime: "01:00:00 PM", status: "cancelled",  bookedOn: "3/06/2026" },
-  { id: 10, name: "Priya Sharma",     phone: "8800991234", email: "priya.s@email.com",    dept: "DERMATOLOGY",   apptDate: "3/15/2026", apptTime: "09:30:00 AM", status: "completed",  bookedOn: "3/09/2026" },
-  { id: 11, name: "Kevin O'Brien",    phone: "7734561200", email: "kevin.o@email.com",    dept: "NEUROLOGY",     apptDate: "3/15/2026", apptTime: "02:30:00 PM", status: "pending",    bookedOn: "3/11/2026" },
-  { id: 12, name: "Anjali Mehta",     phone: "9812300045", email: "anjali.m@email.com",   dept: "CARDIOLOGY",    apptDate: "3/16/2026", apptTime: "10:00:00 AM", status: "confirmed",  bookedOn: "3/12/2026" },
-  { id: 13, name: "Marcus Johnson",   phone: "8877665544", email: "N/A",                  dept: "ORTHOPEDICS",   apptDate: "3/16/2026", apptTime: "11:00:00 AM", status: "pending",    bookedOn: "3/12/2026" },
-  { id: 14, name: "Fatima Al-Rashid", phone: "7700112299", email: "fatima.r@email.com",   dept: "PEDIATRICS",    apptDate: "3/17/2026", apptTime: "09:00:00 AM", status: "confirmed",  bookedOn: "3/13/2026" },
-  { id: 15, name: "Chris Thompson",   phone: "9966554411", email: "chris.t@email.com",    dept: "GENERAL",       apptDate: "3/17/2026", apptTime: "03:00:00 PM", status: "cancelled",  bookedOn: "3/10/2026" },
-];
+const APPOINTMENTS_DATA = [];
 
 const ROWS_PER_PAGE = 20;
 
 const STATUS_COLORS = {
-  pending:     "#D97706",
-  confirmed:   "#1565D8",
-  completed:   "#16A34A",
-  cancelled:   "#DC2626",
-  rescheduled: "#7C3AED",
+  pending:   "#D97706",
+  accepted:  "#16A34A",
+  rejected:  "#DC2626",
 };
 
 const DEPT_CLASSES = {
@@ -96,9 +79,39 @@ export default function Appointments() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deptFilter,   setDeptFilter]   = useState("all");
   const [page,         setPage]         = useState(1);
+  const [appointments, setAppointments] = useState([]);
+  const [loading,      setLoading]      = useState(true);
+
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        const doctorCode = localStorage.getItem('doctorCode');
+        if (doctorCode) {
+          const data = await getDoctorAppointments(doctorCode);
+          const formatted = data.map(apt => ({
+            id: apt.id,
+            name: apt.patient_name,
+            phone: apt.phone_number || 'N/A',
+            email: apt.email || 'N/A',
+            dept: apt.department_name || apt.department_code,
+            apptDate: new Date(apt.appointment_date).toLocaleDateString(),
+            apptTime: apt.appointment_time_range || new Date(apt.appointment_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            status: apt.status,
+            bookedOn: new Date(apt.created_at).toLocaleDateString()
+          }));
+          setAppointments(formatted);
+        }
+      } catch (error) {
+        console.error('Failed to fetch appointments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAppointments();
+  }, []);
 
   const filtered = useMemo(() => {
-    let data = [...APPOINTMENTS_DATA];
+    let data = [...appointments];
     if (search.trim()) {
       const q = search.toLowerCase();
       data = data.filter(r =>
@@ -111,32 +124,37 @@ export default function Appointments() {
     if (statusFilter !== "all") data = data.filter(r => r.status === statusFilter);
     if (deptFilter   !== "all") data = data.filter(r => r.dept   === deptFilter);
     return data;
-  }, [search, statusFilter, deptFilter]);
+  }, [search, statusFilter, deptFilter, appointments]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
   const pageData   = filtered.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
 
   const counts = {
-    all:         APPOINTMENTS_DATA.length,
-    pending:     APPOINTMENTS_DATA.filter(r => r.status === "pending").length,
-    confirmed:   APPOINTMENTS_DATA.filter(r => r.status === "confirmed").length,
-    completed:   APPOINTMENTS_DATA.filter(r => r.status === "completed").length,
-    cancelled:   APPOINTMENTS_DATA.filter(r => r.status === "cancelled").length,
-    rescheduled: APPOINTMENTS_DATA.filter(r => r.status === "rescheduled").length,
+    all:      appointments.length,
+    pending:  appointments.filter(r => r.status === "pending").length,
+    accepted: appointments.filter(r => r.status === "accepted").length,
+    rejected: appointments.filter(r => r.status === "rejected").length,
   };
 
-  const uniqueDepts = [...new Set(APPOINTMENTS_DATA.map(r => r.dept))].sort();
+  const uniqueDepts = [...new Set(appointments.map(r => r.dept))].sort();
 
   return (
     <div className="ap-layout">
       <Doctorssidebar />
       <div className="ap-page">
 
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ fontSize: '14px', marginTop: '2rem' }}>Loading appointments...</div>
+          </div>
+        ) : (
+          <>
+
         {/* 1️⃣ Header */}
         <header className="ap-header">
           <div className="ap-header__left">
             <span className="ap-header__title">Appointments</span>
-            <span className="ap-header__count">{APPOINTMENTS_DATA.length}</span>
+            <span className="ap-header__count">{appointments.length}</span>
           </div>
           <div className="ap-header__right" />
         </header>
@@ -144,12 +162,10 @@ export default function Appointments() {
         {/* 2️⃣ Stats */}
         <div className="ap-stats">
           {[
-            { key: "all",         label: "All",         color: "#1A2B4B" },
-            { key: "pending",     label: "Pending",     color: STATUS_COLORS.pending     },
-            { key: "confirmed",   label: "Confirmed",   color: STATUS_COLORS.confirmed   },
-            { key: "completed",   label: "Completed",   color: STATUS_COLORS.completed   },
-            { key: "cancelled",   label: "Cancelled",   color: STATUS_COLORS.cancelled   },
-            { key: "rescheduled", label: "Rescheduled", color: STATUS_COLORS.rescheduled },
+            { key: "all",      label: "All",      color: "#1A2B4B" },
+            { key: "pending",  label: "Pending",  color: STATUS_COLORS.pending  },
+            { key: "accepted", label: "Accepted", color: STATUS_COLORS.accepted },
+            { key: "rejected", label: "Rejected", color: STATUS_COLORS.rejected },
           ].map(s => (
             <div
               key={s.key}
@@ -291,6 +307,8 @@ export default function Appointments() {
           </div>
         )}
 
+        </>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { getAllDoctors, getDoctorCredentials, createDoctorCredentials, updateDoctorCredentials } from '../api/api'
 import Sidebar from '../components/Sidebar'
 import '../style/Admindoctors.scss'
 
@@ -13,17 +14,8 @@ if (typeof document !== 'undefined') {
   }
 }
 
-// ─── Mock Doctors ─────────────────────────────────────────────────────────────
-const DOCTOR_LIST = [
-  { id: 'DOC-001', name: 'Dr. Emily Chen',    specialty: 'Cardiologist',       initials: 'EC', color: '#4C9BE8' },
-  { id: 'DOC-002', name: 'Dr. James Patel',   specialty: 'Neurologist',        initials: 'JP', color: '#A78BFA' },
-  { id: 'DOC-003', name: 'Dr. Rachel Torres', specialty: 'Orthopedic Surgeon', initials: 'RT', color: '#34D399' },
-  { id: 'DOC-004', name: 'Dr. Ben Okafor',    specialty: 'Dermatologist',      initials: 'BO', color: '#FBBF24' },
-  { id: 'DOC-005', name: 'Dr. Sophia Liu',    specialty: 'Pediatrician',       initials: 'SL', color: '#F87171' },
-  { id: 'DOC-006', name: 'Dr. Marcus Webb',   specialty: 'Ophthalmologist',    initials: 'MW', color: '#2DD4BF' },
-  { id: 'DOC-007', name: 'Dr. Anika Sharma',  specialty: 'Cardiologist',       initials: 'AS', color: '#FB923C' },
-  { id: 'DOC-008', name: 'Dr. Leon Müller',   specialty: 'General Surgeon',    initials: 'LM', color: '#60A5FA' },
-]
+// ─── Mock Doctors - will be replaced with API data ───────────────────────────
+const DOCTOR_LIST = []
 
 // ─── API stub ─────────────────────────────────────────────────────────────────
 const api = {
@@ -35,6 +27,11 @@ const api = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const validateEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 const maskPassword  = (p) => '•'.repeat(Math.min(p.length, 10))
+const getInitials = (name) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+const getColor = (index) => {
+  const colors = ['#4C9BE8', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#2DD4BF', '#FB923C', '#60A5FA']
+  return colors[index % colors.length]
+}
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function Avatar({ doc, large }) {
@@ -109,14 +106,21 @@ function LoginModal({ doctor, editRow, onSave, onClose }) {
     setLoading(true)
     try {
       const payload = {
-        doctorId: doctor.id, doctorName: doctor.name, specialty: doctor.specialty,
-        initials: doctor.initials, color: doctor.color, email, password,
-        photo: photoPreview ?? null,
+        doctor_code: doctor.code,
+        username: email.split('@')[0],
+        email,
+        password,
       }
-      const saved = editRow
-        ? await api.update({ ...editRow, ...payload })
-        : await api.create(payload)
-      onSave(saved, !!editRow)
+      
+      if (editRow) {
+        await updateDoctorCredentials(doctor.code, payload)
+      } else {
+        await createDoctorCredentials(payload)
+      }
+      
+      onSave({ ...payload, doctorName: doctor.name, specialty: doctor.department }, !!editRow)
+    } catch (error) {
+      setErrors({ email: error.response?.data?.error || 'Failed to save credentials' })
     } finally {
       setLoading(false)
     }
@@ -306,8 +310,53 @@ export default function AdminDoctorLogin() {
   const [editRow,     setEditRow]     = useState(null)
   const [deleteRow,   setDeleteRow]   = useState(null)
   const [rows,        setRows]        = useState([])
+  const [doctors,     setDoctors]     = useState([])
   const [search,      setSearch]      = useState('')
   const [toast,       setToast]       = useState(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setError(null)
+        const [doctorsData, credentialsData] = await Promise.all([
+          getAllDoctors(),
+          getDoctorCredentials()
+        ])
+        
+        const formattedDoctors = doctorsData.map((d, idx) => ({
+          id: d.code,
+          code: d.code,
+          name: d.name,
+          specialty: d.department,
+          department: d.department,
+          initials: getInitials(d.name),
+          color: getColor(idx)
+        }))
+        
+        const formattedCredentials = (credentialsData || []).map(cred => ({
+          id: cred.id,
+          doctor_code: cred.doctor_code,
+          doctorName: cred.doctor_name,
+          specialty: cred.department,
+          email: cred.email,
+          password: '••••••••',
+          photo: null
+        }))
+        
+        setDoctors(formattedDoctors)
+        setRows(formattedCredentials)
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+        setError(error.message || 'Failed to load doctors. Please try again.')
+        showToast('Failed to load data', 'error')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
@@ -316,7 +365,7 @@ export default function AdminDoctorLogin() {
 
   const openAdd = () => {
     if (!selectedDoc) return
-    setModalDoc(DOCTOR_LIST.find(d => d.id === selectedDoc))
+    setModalDoc(doctors.find(d => d.id === selectedDoc))
     setEditRow(null)
   }
 
@@ -334,16 +383,20 @@ export default function AdminDoctorLogin() {
   }
 
   const openEdit = (row) => {
-    const doc = DOCTOR_LIST.find(d => d.id === row.doctorId)
-      || { id: row.doctorId, name: row.doctorName, specialty: row.specialty, initials: row.initials, color: row.color }
+    const doc = doctors.find(d => d.code === row.doctor_code)
+      || { id: row.doctor_code, code: row.doctor_code, name: row.doctorName, specialty: row.specialty, initials: getInitials(row.doctorName), color: '#4C9BE8' }
     setEditRow(row)
     setModalDoc(doc)
   }
 
   const handleDelete = async () => {
-    await api.remove(deleteRow.id)
-    setRows(prev => prev.filter(r => r.id !== deleteRow.id))
-    showToast('Record removed.', 'error')
+    try {
+      // Note: Backend doesn't have delete endpoint yet, so we just remove from UI
+      setRows(prev => prev.filter(r => r.doctor_code !== deleteRow.doctor_code))
+      showToast('Record removed.', 'error')
+    } catch (error) {
+      showToast('Failed to delete', 'error')
+    }
     setDeleteRow(null)
   }
 
@@ -352,7 +405,39 @@ export default function AdminDoctorLogin() {
     r.email.toLowerCase().includes(search.toLowerCase())
   )
 
-  const credentialedIds = new Set(rows.map(r => r.doctorId))
+  const credentialedIds = new Set(rows.map(r => r.doctor_code))
+
+  if (loading) {
+    return (
+      <div className="dlm-shell">
+        <Sidebar active="doctors" />
+        <div className="dlm-main">
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ fontSize: '14px', marginTop: '2rem' }}>Loading doctors...</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="dlm-shell">
+        <Sidebar active="doctors" />
+        <div className="dlm-main">
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#DC2626' }}>
+            <div style={{ fontSize: '14px', marginTop: '1rem' }}>{error}</div>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{ marginTop: '1rem', padding: '8px 16px', background: '#DC2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="dlm-shell">
@@ -413,7 +498,7 @@ export default function AdminDoctorLogin() {
                   onChange={e => setSelectedDoc(e.target.value)}
                 >
                   <option value="">— Select a doctor —</option>
-                  {DOCTOR_LIST.map(d => (
+                  {doctors.map(d => (
                     <option key={d.id} value={d.id} disabled={credentialedIds.has(d.id)}>
                       {d.name} · {d.specialty}{credentialedIds.has(d.id) ? ' ✓' : ''}
                     </option>
@@ -423,8 +508,8 @@ export default function AdminDoctorLogin() {
               </div>
 
               {selectedDoc && (() => {
-                const doc = DOCTOR_LIST.find(d => d.id === selectedDoc)
-                return (
+                const doc = doctors.find(d => d.id === selectedDoc)
+                return doc ? (
                   <div className="dlm-preview-chip">
                     <Avatar doc={doc} />
                     <div>
@@ -432,7 +517,7 @@ export default function AdminDoctorLogin() {
                       <p className="dlm-preview-chip__meta">{doc.specialty} · {doc.id}</p>
                     </div>
                   </div>
-                )
+                ) : null
               })()}
 
               <button

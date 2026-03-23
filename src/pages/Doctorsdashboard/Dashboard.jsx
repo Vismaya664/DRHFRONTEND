@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getDoctorAppointments } from "../../api/api";
 import "../../style/Doctordashboard/Dashboard.scss";
 import Doctorssidebar from "../../components/doctorssidebar";
 
@@ -171,12 +172,31 @@ function MiniCalendar() {
 //  MAIN DASHBOARD
 // ══════════════════════════════════════════════════════════════
 export default function Dashboard() {
+  const [appointmentsData, setAppointmentsData] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        const doctorCode = localStorage.getItem('doctorCode')
+        if (doctorCode) {
+          const data = await getDoctorAppointments(doctorCode)
+          setAppointmentsData(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch appointments:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAppointments()
+  }, [])
 
   // ── Stat cards ──────────────────────────────────────────────
   const stats = [
     { label: "Total Patient",      value: "2000+", sub: "Till Today",   Icon: PatientIcon      },
     { label: "Today Patient",      value: "068",   sub: "21 Dec-2021",  Icon: TodayPatientIcon },
-    { label: "Today Appointments", value: "085",   sub: "21 Dec-2021",  Icon: ApptIcon         },
+    { label: "Today Appointments", value: appointmentsData.length.toString(), sub: new Date().toLocaleDateString(),  Icon: ApptIcon         },
   ];
 
   // ── Patients Summary donut ───────────────────────────────────
@@ -187,12 +207,13 @@ export default function Dashboard() {
   ];
 
   // ── Today Appointments table ─────────────────────────────────
-  const appointments = [
-    { initials: "MJ", name: "M.J. Mical",   diag: "Health Checkup", time: "On Going", type: "ongoing"  },
-    { initials: "SD", name: "Sanath Deo",   diag: "Health Checkup", time: "12 : 30 PM", type: "upcoming" },
-    { initials: "LP", name: "Loeara Phanj", diag: "Report",          time: "01 : 00 PM", type: "upcoming" },
-    { initials: "KH", name: "Komola Haris", diag: "Common Cold",    time: "01 : 30 PM", type: "upcoming" },
-  ];
+  const appointments = appointmentsData.slice(0, 4).map(apt => ({
+    initials: apt.patient_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'PA',
+    name: apt.patient_name,
+    diag: 'Health Checkup',
+    time: new Date(apt.appointment_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    type: apt.status === 'confirmed' ? 'upcoming' : 'ongoing'
+  }));
 
   // ── Next patient ─────────────────────────────────────────────
   const next = {

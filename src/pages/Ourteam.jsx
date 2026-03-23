@@ -1,37 +1,75 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { getAllDoctors, getDepartments } from "../api/api";
 import Navbar from "../components/Navbar";
 import '../style/Ourteam.scss';
 
 const INITIAL_SHOW = 16;
 
-const SPECIALITIES = [
-  "General Medicine", "Cardiology", "Gynaecology & Obstetrics",
-  "Orthopaedics", "Paediatrics", "Neurology", "Dermatology",
-  "Physiotherapy", "Ophthalmology", "ENT", "Psychiatry",
-  "Urology", "Nephrology", "Gastroenterology", "Endocrinology", "Pulmonology",
-];
-
-const teamMembers = [
-  { id: 1,  name: "Dr. Anil Kumar",      designation: "Senior Consultant",       speciality: "General Medicine",         image: "https://randomuser.me/api/portraits/men/32.jpg",   qual: "MBBS, MD (Internal Medicine)" },
-  { id: 2,  name: "Dr. Priya Menon",     designation: "Lead Consultant",         speciality: "Gynaecology & Obstetrics", image: "https://randomuser.me/api/portraits/women/44.jpg", qual: "MBBS, MS (OBG)" },
-  { id: 3,  name: "Dr. Rajesh Nair",     designation: "Senior Specialist",       speciality: "Orthopaedics",             image: "https://randomuser.me/api/portraits/men/45.jpg",   qual: "MBBS, MS (Ortho)" },
-  { id: 4,  name: "Dr. Meera Pillai",    designation: "Consultant",              speciality: "Paediatrics",              image: "https://randomuser.me/api/portraits/women/68.jpg", qual: "MBBS, DCH, MD" },
-  { id: 5,  name: "Dr. Suresh Varma",    designation: "Senior Cardiologist",     speciality: "Cardiology",               image: "https://randomuser.me/api/portraits/men/67.jpg",   qual: "MBBS, MD, DM (Cardio)" },
-  { id: 6,  name: "Dr. Anitha Rajan",    designation: "Consultant",              speciality: "Dermatology",              image: "https://randomuser.me/api/portraits/women/55.jpg", qual: "MBBS, MD (Dermatology)" },
-  { id: 7,  name: "Dr. Sanjay Krishnan", designation: "Senior Neurologist",      speciality: "Neurology",                image: "https://randomuser.me/api/portraits/men/52.jpg",   qual: "MBBS, MD, DM (Neurology)" },
-  { id: 8,  name: "Dr. Divya Thomas",    designation: "Physiotherapist",         speciality: "Physiotherapy",            image: "https://randomuser.me/api/portraits/women/33.jpg", qual: "BPT, MPT (Orthopaedics)" },
-  { id: 9,  name: "Dr. Ravi Shankar",    designation: "Ophthalmologist",         speciality: "Ophthalmology",            image: "https://randomuser.me/api/portraits/men/41.jpg",   qual: "MBBS, MS (Ophthalmology)" },
-  { id: 10, name: "Dr. Fathima Nazar",   designation: "ENT Specialist",          speciality: "ENT",                      image: "https://randomuser.me/api/portraits/women/61.jpg", qual: "MBBS, MS (ENT)" },
-  { id: 11, name: "Dr. Arjun Menon",     designation: "Consultant Psychiatrist", speciality: "Psychiatry",               image: "https://randomuser.me/api/portraits/men/29.jpg",   qual: "MBBS, MD (Psychiatry)" },
-  { id: 12, name: "Dr. Sreeja Mohan",    designation: "Nephrologist",            speciality: "Nephrology",               image: "https://randomuser.me/api/portraits/women/48.jpg", qual: "MBBS, MD, DM (Nephrology)" },
-];
+// Memoized doctor card component
+const DoctorCard = ({ doctor, onBook }) => (
+  <div className="ot-card">
+    <div className="ot-card__photo-col">
+      <img 
+        src={doctor.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&background=4C9BE8&color=fff&size=128`} 
+        alt={doctor.name} 
+        className="ot-card__avatar"
+        loading="lazy"
+      />
+    </div>
+    <div className="ot-card__info">
+      <div className="ot-card__header-row">
+        <h2 className="ot-card__name">{doctor.name}</h2>
+        <span className="ot-card__spec-tag">{doctor.department}</span>
+      </div>
+      <p className="ot-card__designation">Consultant</p>
+      <div className="ot-card__meta-row">
+        <svg className="ot-card__meta-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0z"/>
+        </svg>
+        <span className="ot-card__qual">{doctor.qualification || 'MBBS, MD'}</span>
+      </div>
+      <div className="ot-card__meta-row">
+        <svg className="ot-card__meta-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/>
+        </svg>
+        <span className="ot-card__clinic">Doctors United Medicentre, Balussery</span>
+      </div>
+    </div>
+    <div className="ot-card__cta-col">
+      <button className="ot-book-btn" onClick={() => onBook(doctor)}>
+        Book Appointment
+      </button>
+    </div>
+  </div>
+);
 
 export default function OurTeam() {
   const [checkedSpecs, setCheckedSpecs] = useState([]);
   const [specSearch,   setSpecSearch]   = useState("");
   const [showAllSpecs, setShowAllSpecs] = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doctorsData, deptData] = await Promise.all([
+          getAllDoctors(),
+          getDepartments()
+        ]);
+        setDoctors(doctorsData);
+        setDepartments(deptData.map(d => d.name));
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const toggleSpec = (s) =>
     setCheckedSpecs((prev) =>
@@ -39,16 +77,26 @@ export default function OurTeam() {
     );
 
   const allMatchingSpecs = useMemo(() =>
-    SPECIALITIES.filter((s) =>
+    departments.filter((s) =>
       s.toLowerCase().includes(specSearch.toLowerCase())
-    ), [specSearch]);
+    ), [specSearch, departments]);
 
   const visibleSpecs = showAllSpecs ? allMatchingSpecs : allMatchingSpecs.slice(0, INITIAL_SHOW);
   const hiddenCount  = Math.max(0, allMatchingSpecs.length - INITIAL_SHOW);
 
   const filtered = checkedSpecs.length === 0
-    ? teamMembers
-    : teamMembers.filter((m) => checkedSpecs.includes(m.speciality));
+    ? doctors
+    : doctors.filter((m) => checkedSpecs.includes(m.department));
+
+  const handleBookAppointment = useCallback((doctor) => {
+    navigate("/request-appointment", { 
+      state: { 
+        doctor: doctor.name, 
+        doctorCode: doctor.code, 
+        department: doctor.department 
+      } 
+    });
+  }, [navigate]);
 
   return (
     <>
@@ -153,48 +201,18 @@ export default function OurTeam() {
                     Clear filters
                   </button>
                 </div>
+              ) : loading ? (
+                <div className="ot-empty">
+                  <p className="ot-empty__title">Loading doctors...</p>
+                </div>
               ) : (
                 <div className="ot-cards">
                   {filtered.map((m) => (
-                    <div key={m.id} className="ot-card">
-
-                      {/* Photo */}
-                      <div className="ot-card__photo-col">
-                        <img src={m.image} alt={m.name} className="ot-card__avatar" />
-                      </div>
-
-                      {/* Info */}
-                      <div className="ot-card__info">
-                        <div className="ot-card__header-row">
-                          <h2 className="ot-card__name">{m.name}</h2>
-                          <span className="ot-card__spec-tag">{m.speciality}</span>
-                        </div>
-                        <p className="ot-card__designation">{m.designation}</p>
-                        <div className="ot-card__meta-row">
-                          <svg className="ot-card__meta-icon" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0z"/>
-                          </svg>
-                          <span className="ot-card__qual">{m.qual}</span>
-                        </div>
-                        <div className="ot-card__meta-row">
-                          <svg className="ot-card__meta-icon" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/>
-                          </svg>
-                          <span className="ot-card__clinic">Doctors United Medicentre, Balussery</span>
-                        </div>
-                      </div>
-
-                      {/* CTA */}
-                      <div className="ot-card__cta-col">
-                        <button
-                          className="ot-book-btn"
-                          onClick={() => navigate("/request-appointment", { state: { doctor: m.name, speciality: m.speciality } })}
-                        >
-                          Book Appointment
-                        </button>
-                      </div>
-
-                    </div>
+                    <DoctorCard 
+                      key={m.code} 
+                      doctor={m} 
+                      onBook={handleBookAppointment}
+                    />
                   ))}
                 </div>
               )}

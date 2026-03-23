@@ -1,27 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getAllDoctors, getDepartments, bookAppointment } from "../api/api";
 import '../style/BookAppoinment.scss';
 
 // ─── Static Data ──────────────────────────────────────────────
-const DOCTORS = [
-  { id: 1,  name: "Dr. Shawn T Joseph",        role: "Senior Consultant – Program Director Head & Neck Oncology Network, Kerala Cluster",  qualifications: "MBBS, MS (ENT), DNB (ENT), MCh (Head & Neck Surgery), Fellow in skull base surgery, FACS, MBA (HAHM)",          bio: "Dr. Shawn T. Joseph is a pioneering Head and Neck Surgeon renowned for his innovative surgical techniques and contributions to minimally invasive procedures.", hospital: "Aster Medcity Kochi",   speciality: "Head and Neck Oncology",     initials: "SJ" },
-  { id: 2,  name: "Prof. Dr. Somashekhar S P", role: "Chairman – Medical Advisory Board, Aster DM Healthcare – GCC & India",              qualifications: "MS, MCh (Surgical Oncology), FRCS (Edinburgh), FACS, FICS",                                                       bio: "Prof. Dr. Somashekhar is a globally recognized Surgical Oncologist with expertise in robotic and laparoscopic cancer surgery.",                               hospital: "Aster CMI Bangalore",  speciality: "Surgical Oncology",          initials: "SS" },
-  { id: 3,  name: "Dr. Priya Menon",            role: "Senior Consultant – Cardiology, Aster MIMS Calicut",                               qualifications: "MBBS, MD (Medicine), DM (Cardiology), FSCAI",                                                                     bio: "Dr. Priya Menon is an interventional cardiologist with over 15 years of experience in complex coronary interventions and structural heart disease.",          hospital: "Aster MIMS Calicut",   speciality: "Cardiology",                initials: "PM" },
-  { id: 4,  name: "Dr. Arjun Krishnaswamy",     role: "Director – Neurosurgery, Aster CMI Bangalore",                                     qualifications: "MBBS, MS (General Surgery), MCh (Neurosurgery), FRCS",                                                            bio: "Dr. Arjun Krishnaswamy specializes in minimally invasive spine surgery and complex brain tumor resections with over 3,000 successful surgeries.",              hospital: "Aster CMI Bangalore",  speciality: "Neurosurgery",              initials: "AK" },
-  { id: 5,  name: "Dr. Meera Nair",             role: "Senior Consultant – Dermatology, Aster MIMS Kannur",                               qualifications: "MBBS, MD (Dermatology), DNB",                                                                                      bio: "Dr. Meera Nair is a specialist in clinical and cosmetic dermatology with extensive experience treating complex skin conditions and aesthetic procedures.",     hospital: "Aster MIMS Kannur",    speciality: "Dermatology",               initials: "MN" },
-  { id: 6,  name: "Dr. Rajesh Kumar",            role: "Consultant – Orthopaedics & Joint Replacement, Aster Medcity Kochi",              qualifications: "MBBS, MS (Orthopaedics), DNB, Fellowship in Joint Replacement",                                                    bio: "Dr. Rajesh Kumar specializes in minimally invasive joint replacement and sports medicine, with over 2,500 successful knee and hip replacement surgeries.",    hospital: "Aster Medcity Kochi",  speciality: "Orthopaedics",              initials: "RK" },
-  { id: 7,  name: "Dr. Anitha Suresh",           role: "Senior Consultant – Gynaecology & Obstetrics, Aster MIMS Kottakkal",              qualifications: "MBBS, MS (OBG), DNB, Fellowship in Laparoscopic Surgery",                                                          bio: "Dr. Anitha Suresh is an experienced obstetrician and gynaecologist known for high-risk pregnancies and minimally invasive procedures.",                       hospital: "Aster MIMS Kottakkal", speciality: "Gynaecology & Obstetrics",  initials: "AS" },
-  { id: 8,  name: "Dr. Vivek Pillai",            role: "Consultant – Gastroenterology, Aster Medcity Kochi",                              qualifications: "MBBS, MD (Medicine), DM (Gastroenterology), MRCP (UK)",                                                            bio: "Dr. Vivek Pillai is a leading gastroenterologist specializing in advanced endoscopy, inflammatory bowel disease, and hepatobiliary disorders.",               hospital: "Aster Medcity Kochi",  speciality: "Gastroenterology",          initials: "VP" },
-  { id: 9,  name: "Dr. Shalini Mohan",           role: "Senior Consultant – Endocrinology & Diabetes, Aster MIMS Calicut",                qualifications: "MBBS, MD (General Medicine), DM (Endocrinology)",                                                                  bio: "Dr. Shalini Mohan is a highly regarded endocrinologist with expertise in diabetes management, thyroid disorders, and hormonal imbalances.",                   hospital: "Aster MIMS Calicut",   speciality: "Endocrinology & Diabetes",  initials: "SM" },
-  { id: 10, name: "Dr. Farouk Rasheed",          role: "Consultant – Pulmonology & Sleep Medicine, Aster CMI Bangalore",                  qualifications: "MBBS, MD (Respiratory Medicine), FCCP",                                                                            bio: "Dr. Farouk Rasheed specializes in asthma, COPD, interstitial lung diseases, and complex sleep disorders.",                                                   hospital: "Aster CMI Bangalore",  speciality: "Pulmonology",               initials: "FR" },
-  { id: 11, name: "Dr. Nisha George",            role: "Senior Consultant – Nephrology, Aster MIMS Kannur",                               qualifications: "MBBS, MD (General Medicine), DM (Nephrology)",                                                                     bio: "Dr. Nisha George is a nephrologist with special expertise in chronic kidney disease, dialysis management, and renal transplantation follow-up care.",         hospital: "Aster MIMS Kannur",    speciality: "Nephrology",                initials: "NG" },
-  { id: 12, name: "Dr. Sunil Varma",             role: "Director – Ophthalmology, Aster Medcity Kochi",                                   qualifications: "MBBS, MS (Ophthalmology), DNB, FRCS (Edinburgh)",                                                                  bio: "Dr. Sunil Varma is an acclaimed ophthalmologist specializing in cataract surgery, glaucoma management, and advanced retinal procedures.",                     hospital: "Aster Medcity Kochi",  speciality: "Ophthalmology",             initials: "SV" },
-  { id: 13, name: "Dr. Kavitha Rajan",           role: "Senior Consultant – Paediatrics & Neonatology, Aster MIMS Kottakkal",             qualifications: "MBBS, MD (Paediatrics), Fellowship in Neonatology",                                                                bio: "Dr. Kavitha Rajan is a dedicated paediatrician and neonatologist providing comprehensive care for newborns, infants, and children with complex conditions.",   hospital: "Aster MIMS Kottakkal", speciality: "Paediatrics & Neonatology", initials: "KR" },
-  { id: 14, name: "Dr. Thomas Mathew",           role: "Consultant – Urology & Andrology, Aster CMI Bangalore",                           qualifications: "MBBS, MS (General Surgery), MCh (Urology), Fellowship in Robotic Surgery",                                          bio: "Dr. Thomas Mathew is a urologist with expertise in robotic-assisted surgeries for prostate, kidney, and bladder conditions.",                                hospital: "Aster CMI Bangalore",  speciality: "Urology",                   initials: "TM" },
-  { id: 15, name: "Dr. Rema Devi",               role: "Senior Consultant – Psychiatry & Mental Health, Aster MIMS Calicut",              qualifications: "MBBS, MD (Psychiatry), DNB",                                                                                       bio: "Dr. Rema Devi is a compassionate psychiatrist specializing in mood disorders, anxiety, psychosis, and addiction medicine with over 18 years of practice.",    hospital: "Aster MIMS Calicut",   speciality: "Psychiatry & Mental Health", initials: "RD" },
-];
+const DOCTORS = [];
 
-const SPECIALITIES = [...new Set(DOCTORS.map(d => d.speciality))].sort();
-const HOSPITALS    = [...new Set(DOCTORS.map(d => d.hospital))].sort();
+const SPECIALITIES = [];
+const HOSPITALS    = [];
 
 // ─── Icons ─────────────────────────────────────────────────────
 function SearchIcon() {
@@ -145,9 +130,29 @@ function DoctorCard({ doctor, onBook }) {
 function BookingModal({ doctor, onClose }) {
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", date: "" });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  const handleSubmit = () => { if (form.name && form.phone && form.date) setSubmitted(true); };
+  
+  const handleSubmit = async () => { 
+    if (form.name && form.phone && form.date) {
+      setLoading(true);
+      try {
+        await bookAppointment({
+          patient_name: form.name,
+          doctor_code: doctor.code,
+          department_code: doctor.department,
+          appointment_date: new Date(form.date).toISOString()
+        });
+        setSubmitted(true);
+      } catch (error) {
+        console.error('Failed to book appointment:', error);
+        alert('Failed to book appointment. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   return (
     <div className="ba-modal-overlay" onClick={onClose}>
@@ -180,8 +185,8 @@ function BookingModal({ doctor, onClose }) {
               </div>
             ))}
 
-            <button className="ba-modal__submit" onClick={handleSubmit}>
-              Confirm Appointment
+            <button className="ba-modal__submit" onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Booking...' : 'Confirm Appointment'}
             </button>
           </>
         ) : (
@@ -206,6 +211,41 @@ export default function BookAppointment() {
   const [checkedHospitals,    setCheckedHospitals]    = useState([]);
   const [search,              setSearch]              = useState("");
   const [bookedDoctor,        setBookedDoctor]        = useState(null);
+  const [doctors,             setDoctors]             = useState([]);
+  const [departments,         setDepartments]         = useState([]);
+  const [loading,             setLoading]             = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doctorsData, deptData] = await Promise.all([
+          getAllDoctors(),
+          getDepartments()
+        ]);
+        
+        const formattedDoctors = doctorsData.map(d => ({
+          id: d.code,
+          code: d.code,
+          name: d.name,
+          role: 'Consultant',
+          qualifications: d.qualification || 'MBBS, MD',
+          bio: `${d.name} is a specialist in ${d.department}.`,
+          hospital: 'Doctors United Medicentre',
+          speciality: d.department,
+          department: d.department,
+          initials: d.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        }));
+        
+        setDoctors(formattedDoctors);
+        setDepartments(deptData.map(d => d.name));
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const toggleSpeciality = (name) =>
     setCheckedSpecialities(prev =>
@@ -221,7 +261,7 @@ export default function BookAppointment() {
     setSearch("");
   };
 
-  const filteredDoctors = DOCTORS.filter(doc => {
+  const filteredDoctors = doctors.filter(doc => {
     const matchSpec   = checkedSpecialities.length === 0 || checkedSpecialities.includes(doc.speciality);
     const matchHosp   = checkedHospitals.length === 0    || checkedHospitals.includes(doc.hospital);
     const matchSearch = !search.trim() ||
@@ -264,13 +304,13 @@ export default function BookAppointment() {
 
           <FilterSection
             title="Speciality"
-            items={SPECIALITIES}
+            items={departments.length > 0 ? departments : SPECIALITIES}
             checked={checkedSpecialities}
             onToggle={toggleSpeciality}
           />
           <FilterSection
             title="Hospital"
-            items={HOSPITALS}
+            items={['Doctors United Medicentre']}
             checked={checkedHospitals}
             onToggle={toggleHospital}
           />
@@ -289,7 +329,11 @@ export default function BookAppointment() {
           </p>
 
           <div className="ba-cards">
-            {filteredDoctors.length > 0 ? (
+            {loading ? (
+              <div className="ba-empty">
+                <span className="ba-empty__title">Loading doctors...</span>
+              </div>
+            ) : filteredDoctors.length > 0 ? (
               filteredDoctors.map(doc => (
                 <DoctorCard key={doc.id} doctor={doc} onBook={setBookedDoctor} />
               ))

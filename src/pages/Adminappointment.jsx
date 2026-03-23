@@ -1,28 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getAdminAppointments, updateAppointmentStatus, getAllDoctors, getDepartments } from '../api/api'
 import Sidebar from '../components/Sidebar'
 import '../style/Adminappointment.scss'
 
-const initialAppointments = [
-  { id: 'APT-001', patient: 'Sarah Johnson',  doctor: 'Dr. Emily Chen',    department: 'Cardiology',  date: '2026-03-07', time: '09:00 AM', status: 'confirmed', type: 'Consultation' },
-  { id: 'APT-002', patient: 'Marcus Lee',     doctor: 'Dr. James Patel',   department: 'Neurology',   date: '2026-03-07', time: '10:30 AM', status: 'pending',   type: 'Follow-up' },
-  { id: 'APT-003', patient: 'Aisha Nkosi',   doctor: 'Dr. Rachel Torres',  department: 'Orthopedics', date: '2026-03-07', time: '11:00 AM', status: 'confirmed', type: 'Check-up' },
-  { id: 'APT-004', patient: 'David Kim',      doctor: 'Dr. Emily Chen',    department: 'Cardiology',  date: '2026-03-07', time: '01:00 PM', status: 'cancelled', type: 'Consultation' },
-  { id: 'APT-005', patient: 'Priya Sharma',   doctor: 'Dr. Ben Okafor',    department: 'Dermatology', date: '2026-03-08', time: '09:30 AM', status: 'pending',   type: 'New Patient' },
-  { id: 'APT-006', patient: 'Tom Wright',     doctor: 'Dr. James Patel',   department: 'Neurology',   date: '2026-03-08', time: '02:00 PM', status: 'confirmed', type: 'Follow-up' },
-  { id: 'APT-007', patient: 'Elena Vasquez',  doctor: 'Dr. Rachel Torres', department: 'Orthopedics', date: '2026-03-09', time: '10:00 AM', status: 'confirmed', type: 'Surgery Prep' },
-  { id: 'APT-008', patient: 'Omar Hassan',    doctor: 'Dr. Ben Okafor',    department: 'Dermatology', date: '2026-03-09', time: '03:30 PM', status: 'pending',   type: 'Check-up' },
-]
+const initialAppointments = []
 
 const statusConfig = {
-  confirmed: { label: 'Confirmed', color: 'green' },
+  accepted: { label: 'Accepted', color: 'green' },
   pending:   { label: 'Pending',   color: 'amber' },
-  cancelled: { label: 'Cancelled', color: 'red'   },
+  rejected: { label: 'Rejected', color: 'red'   },
 }
 
 const statusOptions = [
   {
-    key: 'confirmed',
-    label: 'Confirmed',
+    key: 'accepted',
+    label: 'Accepted',
     desc: 'Appointment is approved and scheduled',
     bg: '#F0FDF4', border: '#86EFAC', iconBg: '#DCFCE7', iconColor: '#15803D',
     icon: (
@@ -43,9 +35,9 @@ const statusOptions = [
     ),
   },
   {
-    key: 'cancelled',
-    label: 'Cancelled',
-    desc: 'Appointment has been cancelled',
+    key: 'rejected',
+    label: 'Rejected',
+    desc: 'Appointment has been rejected',
     bg: '#FFF1F2', border: '#FCA5A5', iconBg: '#FEE2E2', iconColor: '#B91C1C',
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" width="22" height="22">
@@ -55,8 +47,8 @@ const statusOptions = [
   },
 ]
 
-const DEPARTMENTS = ['Cardiology', 'Neurology', 'Orthopedics', 'Dermatology', 'General', 'Radiology', 'Pediatrics']
-const DOCTORS     = ['Dr. Emily Chen', 'Dr. James Patel', 'Dr. Rachel Torres', 'Dr. Ben Okafor', 'Dr. Sarah Mills']
+const DEPARTMENTS = []
+const DOCTORS     = []
 const TYPES       = ['Consultation', 'Follow-up', 'Check-up', 'New Patient', 'Surgery Prep', 'Emergency']
 
 const emptyForm = { patient: '', doctor: '', department: '', date: '', time: '', type: '', status: 'pending' }
@@ -71,6 +63,9 @@ export default function AdminAppointment() {
   const [search, setSearch]             = useState('')
   const [filterStatus, setFilter]       = useState('all')
   const [selected, setSelected]         = useState(null)
+  const [doctors, setDoctors]           = useState([])
+  const [departments, setDepartments]   = useState([])
+  const [loading, setLoading]           = useState(true)
 
   // New appointment modal
   const [modalOpen, setModalOpen] = useState(false)
@@ -81,21 +76,57 @@ export default function AdminAppointment() {
   const [statusModal, setStatusModal]   = useState(null)
   const [pickedStatus, setPickedStatus] = useState(null)
   const [statusSaved, setStatusSaved]   = useState(false)
+  const [error, setError]               = useState(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setError(null)
+        // Fetch appointments and departments in parallel, doctors only if needed
+        const [appointmentsData, deptData] = await Promise.all([
+          getAdminAppointments(),
+          getDepartments()
+        ])
+        
+        setAppointments(appointmentsData.map(apt => ({
+          id: `APT-${apt.id}`,
+          patient: apt.patient_name,
+          doctor: apt.doctor_name || apt.doctor_code,
+          department: apt.department_name || apt.department_code,
+          date: new Date(apt.appointment_date).toLocaleDateString(),
+          time: apt.appointment_time_range || new Date(apt.appointment_date).toLocaleTimeString(),
+          status: apt.status,
+          type: 'Consultation',
+          rawId: apt.id
+        })))
+        
+        setDepartments(deptData.map(d => d.name))
+        
+        // Fetch doctors only when modal opens (lazy loading)
+      } catch (error) {
+        console.error('Failed to fetch appointments:', error)
+        setError(error.message || 'Failed to load appointments. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   // ── derived metrics ──────────────────────────────────────────────────────────
-  const confirmed = appointments.filter(a => a.status === 'confirmed').length
+  const accepted = appointments.filter(a => a.status === 'accepted').length
   const pending   = appointments.filter(a => a.status === 'pending').length
-  const cancelled = appointments.filter(a => a.status === 'cancelled').length
+  const rejected = appointments.filter(a => a.status === 'rejected').length
   const total     = appointments.length
 
   const metrics = [
     { label: "Today's Total",  value: String(total), sub: `${total} total appointments`, badge: '+12%', badgeType: 'up', iconColor: 'blue', bar: 80, barColor: '#4C9BE8',
       icon: <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg> },
-    { label: 'Confirmed', value: String(confirmed), sub: `${total ? Math.round(confirmed/total*100) : 0}% of total`, badge: `${total ? Math.round(confirmed/total*100) : 0}%`, badgeType: 'up', iconColor: 'green', bar: total ? Math.round(confirmed/total*100) : 0, barColor: '#34D399',
+    { label: 'Accepted', value: String(accepted), sub: `${total ? Math.round(accepted/total*100) : 0}% of total`, badge: `${total ? Math.round(accepted/total*100) : 0}%`, badgeType: 'up', iconColor: 'green', bar: total ? Math.round(accepted/total*100) : 0, barColor: '#34D399',
       icon: <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg> },
     { label: 'Pending', value: String(pending), sub: 'Awaiting confirmation', badge: `${total ? Math.round(pending/total*100) : 0}%`, badgeType: 'down', iconColor: 'amber', bar: total ? Math.round(pending/total*100) : 0, barColor: '#FBBF24',
       icon: <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg> },
-    { label: 'Cancelled', value: String(cancelled), sub: `${total ? Math.round(cancelled/total*100) : 0}% of total`, badge: `-${cancelled}`, badgeType: 'down', iconColor: 'red', bar: total ? Math.round(cancelled/total*100) : 0, barColor: '#F87171',
+    { label: 'Rejected', value: String(rejected), sub: `${total ? Math.round(rejected/total*100) : 0}% of total`, badge: `-${rejected}`, badgeType: 'down', iconColor: 'red', bar: total ? Math.round(rejected/total*100) : 0, barColor: '#F87171',
       icon: <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg> },
   ]
 
@@ -108,7 +139,21 @@ export default function AdminAppointment() {
   })
 
   // ── new appointment ──────────────────────────────────────────────────────────
-  function openModal()  { setForm(emptyForm); setErrors({}); setModalOpen(true) }
+  async function openModal() { 
+    setForm(emptyForm); 
+    setErrors({}); 
+    setModalOpen(true);
+    
+    // Lazy load doctors only when modal opens
+    if (doctors.length === 0) {
+      try {
+        const doctorsData = await getAllDoctors();
+        setDoctors(doctorsData.map(d => d.name));
+      } catch (error) {
+        console.error('Failed to fetch doctors:', error);
+      }
+    }
+  }
   function closeModal() { setModalOpen(false) }
 
   function handleChange(e) {
@@ -149,15 +194,47 @@ export default function AdminAppointment() {
 
   function confirmStatusChange() {
     if (!pickedStatus || pickedStatus === statusModal.current) { closeStatusModal(); return }
-    setAppointments(prev => prev.map(a => a.id === statusModal.aptId ? { ...a, status: pickedStatus } : a))
-    setStatusSaved(true)
-    setTimeout(() => closeStatusModal(), 1400)
+    
+    const aptId = parseInt(statusModal.aptId.replace('APT-', ''))
+    updateAppointmentStatus(aptId, pickedStatus)
+      .then(() => {
+        setAppointments(prev => prev.map(a => a.id === statusModal.aptId ? { ...a, status: pickedStatus } : a))
+        setStatusSaved(true)
+        setTimeout(() => closeStatusModal(), 1400)
+      })
+      .catch(error => {
+        console.error('Failed to update status:', error)
+        closeStatusModal()
+      })
   }
 
   return (
     <div className="ap-shell">
       <Sidebar active="appointments" />
 
+      {loading && (
+        <div className="ap-main">
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ fontSize: '14px', marginTop: '2rem' }}>Loading appointments...</div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="ap-main">
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#DC2626' }}>
+            <div style={{ fontSize: '14px', marginTop: '1rem' }}>{error}</div>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{ marginTop: '1rem', padding: '8px 16px', background: '#DC2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && (
       <div className="ap-main">
         {/* Topbar */}
         <div className="ap-topbar">
@@ -217,7 +294,7 @@ export default function AdminAppointment() {
                 <input placeholder="Search patient, doctor, ID…" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <div className="ap-filters">
-                {['all', 'confirmed', 'pending', 'cancelled'].map(s => (
+                {['all', 'accepted', 'pending', 'rejected'].map(s => (
                   <button key={s} className={`ap-filter-btn ${filterStatus === s ? 'ap-filter-btn--on' : ''}`} onClick={() => setFilter(s)}>
                     {s.charAt(0).toUpperCase() + s.slice(1)}
                   </button>
@@ -292,6 +369,7 @@ export default function AdminAppointment() {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Status Change Modal ───────────────────────────────────────────────── */}
       {statusModal && (
@@ -423,7 +501,7 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Doctor <span className="ap-field__req">*</span></label>
                   <select className={`ap-field__input ap-field__select ${errors.doctor ? 'ap-field__input--err' : ''}`} name="doctor" value={form.doctor} onChange={handleChange}>
                     <option value="">Select doctor</option>
-                    {DOCTORS.map(d => <option key={d} value={d}>{d}</option>)}
+                  {DOCTORS.length > 0 ? DOCTORS.map(d => <option key={d} value={d}>{d}</option>) : doctors.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   {errors.doctor && <span className="ap-field__err">{errors.doctor}</span>}
                 </div>
@@ -431,7 +509,7 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Department <span className="ap-field__req">*</span></label>
                   <select className={`ap-field__input ap-field__select ${errors.department ? 'ap-field__input--err' : ''}`} name="department" value={form.department} onChange={handleChange}>
                     <option value="">Select department</option>
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  {DEPARTMENTS.length > 0 ? DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>) : departments.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   {errors.department && <span className="ap-field__err">{errors.department}</span>}
                 </div>
@@ -461,8 +539,8 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Initial Status</label>
                   <select className="ap-field__input ap-field__select" name="status" value={form.status} onChange={handleChange}>
                     <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
                   </select>
                 </div>
               </div>

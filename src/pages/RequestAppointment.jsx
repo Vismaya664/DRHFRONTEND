@@ -1,24 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { getAllDoctors, getDepartments, bookAppointment, getDoctorSlots } from "../api/api";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import '../style/RequestAppointment.scss';
-
-const DOCTORS = [
-  "Dr. Shawn T Joseph", "Dr. Anil Kumar", "Dr. Priya Menon",
-  "Dr. Ravi Shankar", "Dr. Sneha Pillai",
-];
-
-const SPECIALITIES = [
-  "Head and Neck Oncology", "Cardiology", "Dermatology",
-  "Neurology", "Orthopedics", "Pediatrics", "General Medicine",
-];
-
-const SLOTS = [
-  { id: "morning",   label: "Morning",   time: "9:00 AM – 12:00 PM", totalTokens: 20, disabledTokens: [3,6,11,15] },
-  { id: "afternoon", label: "Afternoon", time: "2:00 PM – 5:00 PM",  totalTokens: 15, disabledTokens: [1,2,8,12]  },
-  { id: "evening",   label: "Evening",   time: "6:00 PM – 9:00 PM",  totalTokens: 12, disabledTokens: [4,9]        },
-];
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAY_NAMES   = ["Su","Mo","Tu","We","Th","Fr","Sa"];
@@ -252,15 +237,26 @@ function TokenModal({ slots, initSlot, initToken, onConfirm, onClose, appointmen
 export default function RequestAppointment() {
   const { state } = useLocation();
 
-  const incomingDoctor     = state?.doctor     || DOCTORS[0];
-  const incomingSpeciality = state?.speciality || SPECIALITIES[0];
+  const [doctors, setDoctors] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [slots, setSlots] = useState([
+    { id: "morning",   label: "Morning",   time: "9:00 AM – 12:00 PM", totalTokens: 20, disabledTokens: [] },
+    { id: "afternoon", label: "Afternoon", time: "2:00 PM – 5:00 PM",  totalTokens: 15, disabledTokens: []  },
+    { id: "evening",   label: "Evening",   time: "6:00 PM – 9:00 PM",  totalTokens: 12, disabledTokens: []        },
+  ]);
 
-  const allDoctors      = DOCTORS.includes(incomingDoctor)          ? DOCTORS      : [incomingDoctor, ...DOCTORS];
-  const allSpecialities = SPECIALITIES.includes(incomingSpeciality) ? SPECIALITIES : [incomingSpeciality, ...SPECIALITIES];
+  const incomingDoctor = state?.doctor || "";
+  const incomingDoctorCode = state?.doctorCode || "";
+  const incomingDepartment = state?.department || "";
 
   const [form, setForm] = useState({
-    doctor: incomingDoctor, speciality: incomingSpeciality,
-    appointmentDate: "", firstName: "", mobile: "",
+    doctor: incomingDoctor,
+    doctorCode: incomingDoctorCode,
+    speciality: incomingDepartment,
+    appointmentDate: "",
+    firstName: "",
+    mobile: "",
   });
 
   const [selectedSlot,  setSelectedSlot]  = useState("");
@@ -270,6 +266,37 @@ export default function RequestAppointment() {
   const [calOpen,       setCalOpen]       = useState(false);
   const [tokenOpen,     setTokenOpen]     = useState(false);
   const [toast,         setToast]         = useState(null);
+  const [submitting,    setSubmitting]    = useState(false);
+
+  // Fetch doctors and departments
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doctorsData, deptData] = await Promise.all([
+          getAllDoctors(),
+          getDepartments()
+        ]);
+        setDoctors(doctorsData);
+        setDepartments(deptData);
+        
+        // Set default doctor if not from navigation
+        if (!incomingDoctor && doctorsData.length > 0) {
+          setForm(prev => ({
+            ...prev,
+            doctor: doctorsData[0].name,
+            doctorCode: doctorsData[0].code,
+            speciality: doctorsData[0].department
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        setToast('Failed to load doctors and departments');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [incomingDoctor]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -307,23 +334,77 @@ export default function RequestAppointment() {
     return e;
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    setSubmitted(true);
+    
+    setSubmitting(true);
+    try {
+      const appointmentDateTime = new Date(`${form.appointmentDate}T${getSlotTime(selectedSlot)}`);
+      
+      await bookAppointment({
+        patient_name: form.firstName.trim(),
+        doctor_code: form.doctorCode,
+        department_code: form.speciality,
+        appointment_date: appointmentDateTime.toISOString()
+      });
+      
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Failed to book appointment:', error);
+      setToast(error.response?.data?.error || 'Failed to book appointment. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getSlotTime = (slotId) => {
+    const times = {
+      morning: '09:00:00',
+      afternoon: '14:00:00',
+      evening: '18:00:00'
+    };
+    return times[slotId] || '09:00:00';
   };
 
   const resetForm = () => {
-    setSubmitted(false); setSelectedSlot(""); setSelectedToken(null);
-    setCalOpen(false); setTokenOpen(false); setToast(null);
-    setForm({ doctor:incomingDoctor, speciality:incomingSpeciality, appointmentDate:"", firstName:"", mobile:"" });
+    setSubmitted(false);
+    setSelectedSlot("");
+    setSelectedToken(null);
+    setCalOpen(false);
+    setTokenOpen(false);
+    setToast(null);
+    setForm({
+      doctor: doctors.length > 0 ? doctors[0].name : "",
+      doctorCode: doctors.length > 0 ? doctors[0].code : "",
+      speciality: doctors.length > 0 ? doctors[0].department : "",
+      appointmentDate: "",
+      firstName: "",
+      mobile: ""
+    });
   };
 
-  const activeSlot    = SLOTS.find(s => s.id === selectedSlot);
+  const activeSlot    = slots.find(s => s.id === selectedSlot);
   const tokenBtnText  = selectedToken && activeSlot
     ? `Token #${selectedToken} — ${activeSlot.label} (${activeSlot.time})`
     : "Select slot & token";
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <div className="ra-page">
+          <div className="ra-inner">
+            <div style={{ textAlign: 'center', padding: '3rem' }}>
+              <div style={{ fontSize: '1.2rem', color: '#64748b' }}>Loading...</div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>
@@ -434,7 +515,9 @@ export default function RequestAppointment() {
                 </div>
 
                 <div className="ra-submit-row">
-                  <button type="submit" className="jira-btn jira-btn--primary jira-btn--lg">Submit</button>
+                  <button type="submit" className="jira-btn jira-btn--primary jira-btn--lg" disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Submit'}
+                  </button>
                 </div>
 
               </form>
@@ -453,7 +536,7 @@ export default function RequestAppointment() {
 
       {tokenOpen && (
         <TokenModal
-          slots={SLOTS}
+          slots={slots}
           initSlot={selectedSlot}
           initToken={selectedToken}
           appointmentDate={form.appointmentDate}

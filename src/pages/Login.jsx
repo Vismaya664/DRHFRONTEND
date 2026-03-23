@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { adminLogin, doctorLogin } from "../api/api";
 import "../style/Login.scss";
 import loginImage from "../assets/Loginpage.jpg";
 import logoImage from "../assets/Logo.jpg";
@@ -10,15 +11,6 @@ const ROLE_CONFIG = {
   DOCTOR:  { title: "DOCTOR PORTAL"  },
   ADMIN:   { title: "ADMIN DASHBOARD" },
 };
-
-// ── Dummy credentials for frontend testing ──────────────────────────
-// TODO: remove this and use real API when backend is ready
-const DUMMY_CREDENTIALS = {
-  ADMIN:   { email: "admin123@gmail.com",   password: "admin123"   },
-  DOCTOR:  { email: "doctor@gmail.com",  password: "doctor123"  },
-  PATIENT: { email: "patient@medbook.com", password: "patient123" },
-};
-// ────────────────────────────────────────────────────────────────────
 
 const Login = ({ role = "PATIENT" }) => {
   const [activeTab, setActiveTab] = useState("login");
@@ -40,26 +32,40 @@ const Login = ({ role = "PATIENT" }) => {
     setLoading(true);
     setError("");
 
-    // ── TODO: replace this block with real API call when backend is ready ──
-    // const res = await api.post('/auth/login', { ...formData, role })
-    // if (res.data.success) navigate(res.data.redirectTo)
-    // else setError(res.data.message)
-    // ────────────────────────────────────────────────────────────────────────
-    setTimeout(() => {
-      setLoading(false);
-      const creds = DUMMY_CREDENTIALS[role];
-      const isValid =
-        formData.email.trim() === creds.email &&
-        formData.password === creds.password;
-
-      if (isValid) {
-        if (role === "ADMIN")        navigate("/admin/dashboard");
-        else if (role === "DOCTOR")  navigate("/doctor/dashboard");
-        else                         navigate("/");
+    try {
+      let response;
+      
+      if (role === "ADMIN") {
+        // Admin login uses username (not email)
+        // The input field is named 'email' but for admin it's actually username
+        response = await adminLogin(formData.email, formData.password);
+        if (response.user) {
+          localStorage.setItem('user', JSON.stringify(response.user));
+          localStorage.setItem('role', 'admin');
+          navigate("/admin/dashboard");
+        }
+      } else if (role === "DOCTOR") {
+        // Doctor login uses email field
+        response = await doctorLogin(formData.email, formData.password);
+        if (response.user) {
+          localStorage.setItem('user', JSON.stringify(response.user));
+          localStorage.setItem('role', 'doctor');
+          localStorage.setItem('doctorCode', response.doctor_code);
+          navigate("/doctor/dashboard");
+        }
       } else {
-        setError("Invalid email or password. Please try again.");
+        // Patient login not implemented yet
+        setError("Patient login is not available yet.");
       }
-    }, 1200);
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 
+                       err.response?.data?.non_field_errors?.[0] || 
+                       err.response?.data?.detail ||
+                       "Login failed. Please check your credentials.";
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,12 +101,12 @@ const Login = ({ role = "PATIENT" }) => {
 
               <form onSubmit={handleSubmit} className="auth-form">
                 <div className="field-group">
-                  <label className="field-label">Email or Username</label>
+                  <label className="field-label">{role === "ADMIN" ? "Username" : "Email or Username"}</label>
                   <input
                     type="text"
                     name="email"
                     className="field-input"
-                    placeholder="Enter your email..."
+                    placeholder={role === "ADMIN" ? "Enter your username..." : "Enter your email..."}
                     value={formData.email}
                     onChange={handleChange}
                     required
