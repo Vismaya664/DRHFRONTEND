@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import './Sidebar.scss'
 import logoImage from '../assets/Logo.jpg'
@@ -40,6 +40,29 @@ export default function Sidebar() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const [isOpen, setIsOpen] = useState(false)
+  const [admin, setAdmin] = useState(null)
+
+  // Fetch logged-in admin's information from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData)
+        setAdmin(parsedUser)
+      } catch (error) {
+        console.error('Failed to parse admin data:', error)
+      }
+    }
+  }, [])
+
+  // Handle logout
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to log out?')) {
+      localStorage.removeItem('user')
+      localStorage.removeItem('role')
+      navigate('/login/admin')
+    }
+  }
 
   const activeItem = navItems.find(item => location.pathname === item.path)?.id ?? ''
 
@@ -100,11 +123,24 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="sidebar__footer">
-          <div className="sidebar__footer-avatar">EC</div>
+          <div className="sidebar__footer-avatar">
+            {admin?.name?.split(' ').map((n) => n[0]).join('').toUpperCase() || 
+             admin?.username?.substring(0, 2).toUpperCase() || 'AD'}
+          </div>
           <div className="sidebar__footer-info">
-            <span className="sidebar__footer-name">Dr. Emily Chen</span>
+            <span className="sidebar__footer-name">{admin?.name || admin?.username || 'Admin'}</span>
             <span className="sidebar__footer-role">Administrator</span>
           </div>
+          <button
+            className="sidebar__footer-logout"
+            onClick={handleLogout}
+            title="Logout"
+            aria-label="Logout"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
 
       </aside>

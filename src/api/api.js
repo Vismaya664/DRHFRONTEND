@@ -118,6 +118,12 @@ export const updateDoctorCredentials = async (doctorCode, payload) => {
   return data;
 };
 
+export const deleteDoctorCredentials = async (doctorCode) => {
+  await initializeCSRF();
+  const { data } = await api.delete(`/admin/doctor-credentials/${doctorCode}/delete`);
+  return data;
+};
+
 // ─── Appointments ─────────────────────────────────────────────────────────────
 export const bookAppointment = async (payload) => {
   await initializeCSRF();
@@ -138,6 +144,12 @@ export const getDoctorAppointments = async (doctorCode) => {
 export const updateAppointmentStatus = async (appointmentId, status) => {
   await initializeCSRF();
   const { data } = await api.patch(`/admin/appointments/${appointmentId}/status`, { status });
+  return data;
+};
+
+export const deleteAppointment = async (appointmentId) => {
+  await initializeCSRF();
+  const { data } = await api.delete(`/admin/appointments/${appointmentId}/delete`);
   return data;
 };
 

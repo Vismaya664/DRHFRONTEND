@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { getDoctorAppointments } from "../../api/api";
+import { getDoctorAppointments, deleteAppointment } from "../../api/api";
 import "../../style/Doctordashboard/Appointments.scss";
 import Doctorssidebar from "../../components/doctorssidebar";
 
@@ -138,6 +138,18 @@ export default function Appointments() {
 
   const uniqueDepts = [...new Set(appointments.map(r => r.dept))].sort();
 
+  const handleDelete = async (appointmentId) => {
+    if (window.confirm('Are you sure you want to delete this appointment?')) {
+      try {
+        await deleteAppointment(appointmentId);
+        setAppointments(prev => prev.filter(apt => apt.id !== appointmentId));
+      } catch (error) {
+        console.error('Failed to delete appointment:', error);
+        alert('Failed to delete appointment. Please try again.');
+      }
+    }
+  };
+
   return (
     <div className="ap-layout">
       <Doctorssidebar />
@@ -261,8 +273,7 @@ export default function Appointments() {
                         <td>
                           <div className="ap-row-actions">
                             <button className="ap-row-btn" title="View"><EyeIcon /></button>
-                            <button className="ap-row-btn" title="Edit"><EditIcon /></button>
-                            <button className="ap-row-btn" title="Delete"><TrashIcon /></button>
+                            <button className="ap-row-btn" title="Delete" onClick={() => handleDelete(row.id)}><TrashIcon /></button>
                           </div>
                         </td>
                       </tr>

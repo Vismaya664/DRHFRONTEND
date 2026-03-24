@@ -228,11 +228,7 @@ export default function AdminDashboard() {
               <span className="db-icon-btn__badge">3</span>
             </button>
             <div className="db-user">
-              <Avatar initials="EC" color="#4C9BE8" size={28} />
-              <div className="db-user__meta">
-                <span className="db-user__name">Dr. Emily Chen</span>
-                <span className="db-user__role">Administrator</span>
-              </div>
+              
               <ChevronDownIcon />
             </div>
           </div>

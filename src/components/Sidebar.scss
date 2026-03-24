@@ -208,6 +208,32 @@ $transition: 0.2s ease;
     letter-spacing: 0.06em;
     font-weight: 500;
   }
+
+  &__footer-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ef4444;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background $transition, color $transition, border-color $transition;
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #ff5555;
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
 
 // ─── Hamburger Toggle Button (mobile only) ───────────────────────────────────

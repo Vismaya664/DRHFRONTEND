@@ -430,6 +430,54 @@ $sh3:         0 8px 32px rgba(0,0,0,.18);
   font-weight: 700;
 }
 
+.dlm-pwd-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.dlm-pwd-text {
+  display: inline-flex;
+  align-items: center;
+  background: #F1F5F9;
+  color: $t-med;
+  border: 1px solid $ph-border;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  user-select: none;
+}
+
+.dlm-pwd-eye-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid $ph-border;
+  background: #F8FAFC;
+  border-radius: $r-sm;
+  color: $t-sub;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  font-family: $font;
+  padding: 0;
+
+  &:hover {
+    background: $brand;
+    border-color: $brand;
+    color: white;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
 .dlm-table-actions { display: flex; gap: 5px; }
 
 .dlm-action-btn {

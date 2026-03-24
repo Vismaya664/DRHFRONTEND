@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getAllDoctors, getDoctorCredentials, createDoctorCredentials, updateDoctorCredentials } from '../api/api'
+import { getAllDoctors, getDoctorCredentials, createDoctorCredentials, updateDoctorCredentials, deleteDoctorCredentials } from '../api/api'
 import Sidebar from '../components/Sidebar'
 import '../style/Admindoctors.scss'
 
@@ -48,8 +48,10 @@ function Avatar({ doc, large }) {
 // ─── Login Modal ──────────────────────────────────────────────────────────────
 function LoginModal({ doctor, editRow, onSave, onClose }) {
   const [email,       setEmail]       = useState(editRow?.email    ?? '')
-  const [password,    setPassword]    = useState(editRow?.password ?? '')
-  const [showPwd,     setShowPwd]     = useState(false)
+  const [currentPassword, setCurrentPassword] = useState(editRow?.actualPassword ?? '')  // Current password for display in edit mode
+  const [newPassword, setNewPassword] = useState('')  // New password for editing
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
   const [errors,      setErrors]      = useState({})
   const [loading,     setLoading]     = useState(false)
   const [photoFile,   setPhotoFile]   = useState(null)
@@ -57,6 +59,8 @@ function LoginModal({ doctor, editRow, onSave, onClose }) {
   const [dragOver,    setDragOver]    = useState(false)
   const firstRef   = useRef(null)
   const fileInputRef = useRef(null)
+  
+  const isEdit = !!editRow
 
   useEffect(() => { firstRef.current?.focus() }, [])
 
@@ -70,8 +74,17 @@ function LoginModal({ doctor, editRow, onSave, onClose }) {
     const e = {}
     if (!email)                     e.email    = 'Email is required'
     else if (!validateEmail(email)) e.email    = 'Enter a valid email address'
-    if (!password)                  e.password = 'Password is required'
-    else if (password.length < 6)   e.password = 'Minimum 6 characters'
+    
+    // Password validation
+    if (!isEdit) {
+      // New credentials: password is required
+      if (!newPassword)                     e.password = 'Password is required'
+      else if (newPassword.length < 6)      e.password = 'Minimum 6 characters'
+    } else {
+      // Edit mode: password is optional, but if provided must be at least 6 chars
+      if (newPassword && newPassword.length < 6) e.password = 'Minimum 6 characters'
+    }
+    
     return e
   }
 
@@ -109,7 +122,11 @@ function LoginModal({ doctor, editRow, onSave, onClose }) {
         doctor_code: doctor.code,
         username: email.split('@')[0],
         email,
-        password,
+      }
+      
+      // Only include new password if it was entered (not empty)
+      if (newPassword) {
+        payload.password = newPassword
       }
       
       if (editRow) {
@@ -118,15 +135,18 @@ function LoginModal({ doctor, editRow, onSave, onClose }) {
         await createDoctorCredentials(payload)
       }
       
-      onSave({ ...payload, doctorName: doctor.name, specialty: doctor.department }, !!editRow)
+      onSave({ 
+        ...payload, 
+        doctorName: doctor.name, 
+        specialty: doctor.department,
+        password: newPassword || currentPassword  // Include password for storage
+      }, !!editRow)
     } catch (error) {
       setErrors({ email: error.response?.data?.error || 'Failed to save credentials' })
     } finally {
       setLoading(false)
     }
   }
-
-  const isEdit = !!editRow
 
   return (
     <div className="dlm-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -228,26 +248,86 @@ function LoginModal({ doctor, editRow, onSave, onClose }) {
             {errors.email && <p className="dlm-err-msg">{errors.email}</p>}
           </div>
 
-          {/* ── Password ── */}
-          <div className="dlm-field">
-            <label className="dlm-label">
-              Password <span className="dlm-required">*</span>
-            </label>
-            <div className={`dlm-input-wrap${errors.password ? ' dlm-input-wrap--error' : ''}`}>
-              <LockIcon />
-              <input
-                type={showPwd ? 'text' : 'password'}
-                placeholder="Min. 6 characters"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
-                className="dlm-input"
-              />
-              <button className="dlm-eye-btn" onClick={() => setShowPwd(v => !v)} title={showPwd ? 'Hide' : 'Show'}>
-                {showPwd ? <EyeOffIcon /> : <EyeIcon />}
-              </button>
+          {/* ── Password Fields ── */}
+          {isEdit ? (
+            <>
+              {/* Current Password (display only) */}
+              <div className="dlm-field">
+                <label className="dlm-label">Current Password</label>
+                <div className="dlm-input-wrap">
+                  <LockIcon />
+                  <input
+                    type={showCurrentPwd ? 'text' : 'password'}
+                    value={currentPassword}
+                    readOnly
+                    className="dlm-input"
+                    style={{ backgroundColor: '#F1F5F9', cursor: 'not-allowed' }}
+                  />
+                  <button 
+                    className="dlm-eye-btn" 
+                    onClick={(e) => { e.preventDefault(); setShowCurrentPwd(v => !v) }}
+                    title={showCurrentPwd ? 'Hide password' : 'Show password'}
+                    type="button"
+                    tabIndex={0}
+                  >
+                    {showCurrentPwd ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password (editable) */}
+              <div className="dlm-field">
+                <label className="dlm-label">New Password <span style={{ fontSize: '12px', color: '#64748B' }}>(Optional)</span></label>
+                <div className={`dlm-input-wrap${errors.password ? ' dlm-input-wrap--error' : ''}`}>
+                  <LockIcon />
+                  <input
+                    type={showNewPwd ? 'text' : 'password'}
+                    placeholder="Leave blank to keep current password"
+                    value={newPassword}
+                    onChange={e => { setNewPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
+                    className="dlm-input"
+                  />
+                  <button 
+                    className="dlm-eye-btn" 
+                    onClick={(e) => { e.preventDefault(); setShowNewPwd(v => !v) }}
+                    title={showNewPwd ? 'Hide password' : 'Show password'}
+                    type="button"
+                    tabIndex={0}
+                  >
+                    {showNewPwd ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                {errors.password && <p className="dlm-err-msg">{errors.password}</p>}
+              </div>
+            </>
+          ) : (
+            /* Create Mode - Single Password Field */
+            <div className="dlm-field">
+              <label className="dlm-label">
+                Password <span className="dlm-required">*</span>
+              </label>
+              <div className={`dlm-input-wrap${errors.password ? ' dlm-input-wrap--error' : ''}`}>
+                <LockIcon />
+                <input
+                  type={showNewPwd ? 'text' : 'password'}
+                  placeholder="Min. 6 characters"
+                  value={newPassword}
+                  onChange={e => { setNewPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
+                  className="dlm-input"
+                />
+                <button 
+                  className="dlm-eye-btn" 
+                  onClick={(e) => { e.preventDefault(); setShowNewPwd(v => !v) }}
+                  title={showNewPwd ? 'Hide password' : 'Show password'}
+                  type="button"
+                  tabIndex={0}
+                >
+                  {showNewPwd ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
+              {errors.password && <p className="dlm-err-msg">{errors.password}</p>}
             </div>
-            {errors.password && <p className="dlm-err-msg">{errors.password}</p>}
-          </div>
+          )}
 
           <div className="dlm-info-box">
             <InfoIcon />
@@ -315,6 +395,7 @@ export default function AdminDoctorLogin() {
   const [toast,       setToast]       = useState(null)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(null)
+  const [visiblePasswords, setVisiblePasswords] = useState(new Set())
 
   useEffect(() => {
     const fetchData = async () => {
@@ -341,7 +422,7 @@ export default function AdminDoctorLogin() {
           doctorName: cred.doctor_name,
           specialty: cred.department,
           email: cred.email,
-          password: '••••••••',
+          actualPassword: cred.password || '',
           photo: null
         }))
         
@@ -363,6 +444,18 @@ export default function AdminDoctorLogin() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  const togglePasswordVisibility = (rowId) => {
+    setVisiblePasswords(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(rowId)) {
+        newSet.delete(rowId)
+      } else {
+        newSet.add(rowId)
+      }
+      return newSet
+    })
+  }
+
   const openAdd = () => {
     if (!selectedDoc) return
     setModalDoc(doctors.find(d => d.id === selectedDoc))
@@ -371,10 +464,30 @@ export default function AdminDoctorLogin() {
 
   const handleSave = (saved, isEdit) => {
     if (isEdit) {
-      setRows(prev => prev.map(r => r.id === saved.id ? saved : r))
+      setRows(prev => prev.map(r => {
+        if (r.id === saved.id || r.doctor_code === saved.doctor_code) {
+          return {
+            ...r,
+            email: saved.email,
+            doctorName: saved.doctorName || r.doctorName,
+            specialty: saved.specialty || r.specialty,
+            actualPassword: saved.password || r.actualPassword
+          }
+        }
+        return r
+      }))
       showToast('Credentials updated successfully.')
     } else {
-      setRows(prev => [...prev, saved])
+      const newRow = {
+        id: saved.id || `cred_${Date.now()}`,
+        doctor_code: saved.doctor_code,
+        doctorName: saved.doctorName,
+        specialty: saved.specialty,
+        email: saved.email,
+        actualPassword: saved.password || '',
+        photo: null
+      }
+      setRows(prev => [...prev, newRow])
       showToast('Login credentials added.')
     }
     setModalDoc(null)
@@ -391,11 +504,14 @@ export default function AdminDoctorLogin() {
 
   const handleDelete = async () => {
     try {
-      // Note: Backend doesn't have delete endpoint yet, so we just remove from UI
-      setRows(prev => prev.filter(r => r.doctor_code !== deleteRow.doctor_code))
-      showToast('Record removed.', 'error')
+      if (deleteRow && deleteRow.doctor_code) {
+        await deleteDoctorCredentials(deleteRow.doctor_code)
+        setRows(prev => prev.filter(r => r.doctor_code !== deleteRow.doctor_code))
+        showToast('Credentials removed successfully', 'success')
+      }
     } catch (error) {
-      showToast('Failed to delete', 'error')
+      console.error('Failed to delete credentials:', error)
+      showToast('Failed to delete credentials', 'error')
     }
     setDeleteRow(null)
   }
@@ -592,7 +708,27 @@ export default function AdminDoctorLogin() {
                           </div>
                         </td>
                         <td><span className="dlm-email-badge">{row.email}</span></td>
-                        <td><span className="dlm-pwd-mask">{maskPassword(row.password)}</span></td>
+                        <td>
+                          <div className="dlm-pwd-cell">
+                            <span className="dlm-pwd-text" style={{ fontFamily: 'monospace', letterSpacing: '2px' }}>
+                              {row.actualPassword 
+                                ? (visiblePasswords.has(row.id) ? row.actualPassword : maskPassword(row.actualPassword))
+                                : '—'
+                              }
+                            </span>
+                            {row.actualPassword && (
+                              <button 
+                                className="dlm-pwd-eye-btn" 
+                                onClick={(e) => { e.preventDefault(); togglePasswordVisibility(row.id) }}
+                                type="button"
+                                title={visiblePasswords.has(row.id) ? 'Hide password' : 'Show password'}
+                                tabIndex={0}
+                              >
+                                {visiblePasswords.has(row.id) ? <EyeOffIcon /> : <EyeIcon />}
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td>
                           <div className="dlm-table-actions">
                             <button className="dlm-action-btn dlm-action-btn--edit" onClick={() => openEdit(row)}>

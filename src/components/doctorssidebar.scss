@@ -303,6 +303,19 @@ $transition: 200ms ease;
   }
 }
 
+.jsb__avatar-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, $teal, $teal-dark);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: $font;
+}
+
 .jsb__avatar-status {
   position: absolute;
   bottom: 0; right: 0;
@@ -370,6 +383,48 @@ $transition: 200ms ease;
 }
 
 .jsb__collapse-label { animation: slideIn 180ms ease both; }
+
+// ── Actions container ──────────────────────────────────────────────
+.jsb__actions {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  align-items: center;
+}
+
+// ── Logout button  ─────────────────────────────────────────────────
+.jsb__logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: $radius;
+  border: none;
+  background: transparent;
+  color: $text-muted;
+  font-family: $font;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background $transition, color $transition;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+}
+
+.jsb__logout-icon {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+
+  svg { width: 16px; height: 16px; display: block; }
+}
+
+.jsb__logout-label { animation: slideIn 180ms ease both; }
 
 // ── Layout helper ─────────────────────────────────────────────────
 .with-doctor-sidebar {

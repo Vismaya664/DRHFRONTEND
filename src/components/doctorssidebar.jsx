@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./doctorssidebar.scss";
 
@@ -45,20 +45,55 @@ function CollapseIcon({ collapsed }) {
     </svg>
   );
 }
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 6l4 4m0 0l-4 4M17 10H7m0-7h8a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+    </svg>
+  );
+}
 
 // ── Nav config ────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: "dashboard",    label: "Dashboard",    icon: DashIcon,     path: "/doctor/dashboard"    },
   { id: "appointments", label: "Appointments", icon: CalIcon,      path: "/doctor/appointments" },
-  { id: "patients",     label: "My Patients",  icon: PatientsIcon, path: "/doctor/patients"     },
+  
 ];
 
 // ── Component ─────────────────────────────────────────────────────
 export default function DoctorsSidebar() {
   const [collapsed, setCollapsed]     = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [doctor, setDoctor]           = useState(null);
   const navigate  = useNavigate();
   const location  = useLocation();
+
+  // Fetch logged-in doctor's information from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setDoctor(parsedUser);
+      } catch (error) {
+        console.error('Failed to parse doctor data:', error);
+      }
+    }
+  }, []);
+
+  // Handle logout
+  const handleLogout = () => {
+    // Confirm logout
+    if (window.confirm('Are you sure you want to log out?')) {
+      // Clear localStorage
+      localStorage.removeItem('user');
+      localStorage.removeItem('role');
+      localStorage.removeItem('doctorCode');
+      
+      // Redirect to login
+      navigate('/login/doctor');
+    }
+  };
 
   const isActive  = (path) => location.pathname === path;
   const handleNav = (path) => navigate(path);
@@ -125,31 +160,52 @@ export default function DoctorsSidebar() {
         {/* Profile */}
         <div className={`jsb__profile ${collapsed ? "jsb__profile--collapsed" : ""}`}>
           <div className="jsb__avatar">
-            {/* 👉 Replace with real doctor photo */}
-            <img src="https://i.pravatar.cc/150?img=12" alt="Dr. Rajan A." />
+            {doctor?.photo_url ? (
+              <img src={doctor.photo_url} alt={doctor.name || 'Doctor'} />
+            ) : (
+              <div className="jsb__avatar-initials">
+                {doctor?.name?.split(' ').map((n) => n[0]).join('').toUpperCase() || 'DR'}
+              </div>
+            )}
             <span className="jsb__avatar-status" />
           </div>
           {!collapsed && (
             <div className="jsb__profile-info">
-              <span className="jsb__profile-name">Dr. Rajan A.</span>
-              <span className="jsb__profile-role">Cardiologist</span>
+              <span className="jsb__profile-name">{doctor?.name || 'Dr. Name'}</span>
+              <span className="jsb__profile-role">{doctor?.department || doctor?.specialization || 'Specialist'}</span>
             </div>
           )}
         </div>
 
-        {/* Collapse toggle */}
-        <button
-          className="jsb__collapse-btn"
-          onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <span className="jsb__collapse-icon">
-            <CollapseIcon collapsed={collapsed} />
-          </span>
-          {!collapsed && (
-            <span className="jsb__collapse-label">Collapse</span>
-          )}
-        </button>
+        <div className="jsb__actions">
+          {/* Logout button */}
+          <button
+            className="jsb__logout-btn"
+            onClick={handleLogout}
+            title="Logout"
+          >
+            <span className="jsb__logout-icon">
+              <LogoutIcon />
+            </span>
+            {!collapsed && (
+              <span className="jsb__logout-label">Logout</span>
+            )}
+          </button>
+
+          {/* Collapse toggle */}
+          <button
+            className="jsb__collapse-btn"
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <span className="jsb__collapse-icon">
+              <CollapseIcon collapsed={collapsed} />
+            </span>
+            {!collapsed && (
+              <span className="jsb__collapse-label">Collapse</span>
+            )}
+          </button>
+        </div>
 
       </div>
     </aside>
