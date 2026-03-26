@@ -42,7 +42,6 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [admin, setAdmin] = useState(null)
 
-  // Fetch logged-in admin's information from localStorage
   useEffect(() => {
     const userData = localStorage.getItem('user')
     if (userData) {
@@ -55,7 +54,6 @@ export default function Sidebar() {
     }
   }, [])
 
-  // Handle logout
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
       localStorage.removeItem('user')
@@ -124,13 +122,14 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="sidebar__footer">
           <div className="sidebar__footer-avatar">
-            {admin?.name?.split(' ').map((n) => n[0]).join('').toUpperCase() || 
+            {admin?.name?.split(' ').map((n) => n[0]).join('').toUpperCase() ||
              admin?.username?.substring(0, 2).toUpperCase() || 'AD'}
           </div>
           <div className="sidebar__footer-info">
             <span className="sidebar__footer-name">{admin?.name || admin?.username || 'Admin'}</span>
             <span className="sidebar__footer-role">Administrator</span>
           </div>
+          {/* ── CHANGED: logout icon is now a proper exit/logout arrow ── */}
           <button
             className="sidebar__footer-logout"
             onClick={handleLogout}
@@ -138,7 +137,7 @@ export default function Sidebar() {
             aria-label="Logout"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h6a1 1 0 100-2H4V5h5a1 1 0 100-2H3zm10.293 3.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L14.586 11H8a1 1 0 110-2h6.586l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
           </button>
         </div>

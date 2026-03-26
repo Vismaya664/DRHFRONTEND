@@ -82,7 +82,6 @@ export default function AdminAppointment() {
     const fetchData = async () => {
       try {
         setError(null)
-        // Fetch appointments and departments in parallel, doctors only if needed
         const [appointmentsData, deptData] = await Promise.all([
           getAdminAppointments(),
           getDepartments()
@@ -102,7 +101,6 @@ export default function AdminAppointment() {
         
         setDepartments(deptData.map(d => d.name))
         
-        // Fetch doctors only when modal opens (lazy loading)
       } catch (error) {
         console.error('Failed to fetch appointments:', error)
         setError(error.message || 'Failed to load appointments. Please try again.')
@@ -116,7 +114,7 @@ export default function AdminAppointment() {
   // ── derived metrics ──────────────────────────────────────────────────────────
   const accepted = appointments.filter(a => a.status === 'accepted').length
   const pending   = appointments.filter(a => a.status === 'pending').length
-  const rejected = appointments.filter(a => a.status === 'rejected').length
+  const rejected  = appointments.filter(a => a.status === 'rejected').length
   const total     = appointments.length
 
   const metrics = [
@@ -144,7 +142,6 @@ export default function AdminAppointment() {
     setErrors({}); 
     setModalOpen(true);
     
-    // Lazy load doctors only when modal opens
     if (doctors.length === 0) {
       try {
         const doctorsData = await getAllDoctors();
@@ -305,7 +302,7 @@ export default function AdminAppointment() {
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <div className="ap-searchbox">
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                <input placeholder="Search patient, doctor, ID…" value={search} onChange={e => setSearch(e.target.value)} />
+                <input placeholder="Search patient, doctor…" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <div className="ap-filters">
                 {['all', 'accepted', 'pending', 'rejected'].map(s => (
@@ -320,18 +317,20 @@ export default function AdminAppointment() {
               <table className="ap-table">
                 <thead>
                   <tr>
-                    <th>ID</th><th>Patient</th><th>Doctor</th><th>Department</th>
+                    {/* ── CHANGED: ID → No. ── */}
+                    <th>No.</th><th>Patient</th><th>Doctor</th><th>Department</th>
                     <th>Date & Time</th><th>Type</th><th>Status</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr><td colSpan="8" className="ap-empty">No appointments found</td></tr>
-                  ) : filtered.map(a => {
+                  ) : filtered.map((a, index) => {
                     const sc = statusConfig[a.status]
                     return (
                       <tr key={a.id} className={selected === a.id ? 'ap-row--selected' : ''} onClick={() => setSelected(a.id === selected ? null : a.id)}>
-                        <td><span className="ap-id">{a.id}</span></td>
+                        {/* ── CHANGED: shows row number instead of APT-xxx ── */}
+                        <td><span className="ap-id">{index + 1}</span></td>
                         <td>
                           <div className="ap-patient">
                             <div className="ap-avatar">{a.patient.split(' ').map(n => n[0]).join('')}</div>
@@ -348,7 +347,6 @@ export default function AdminAppointment() {
                         </td>
                         <td className="ap-type">{a.type}</td>
                         <td>
-                          {/* Clickable badge — opens status modal */}
                           <button
                             className={`ap-loz ap-loz--${sc.color} ap-loz--clickable`}
                             onClick={e => openStatusModal(e, a)}
@@ -399,7 +397,6 @@ export default function AdminAppointment() {
           <div className="ap-smodal" onClick={e => e.stopPropagation()}>
 
             {statusSaved ? (
-              /* Success screen */
               <div className="ap-smodal__success">
                 <div className="ap-smodal__success-ring">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="36" height="36">
@@ -413,7 +410,6 @@ export default function AdminAppointment() {
               </div>
             ) : (
               <>
-                {/* Header */}
                 <div className="ap-smodal__header">
                   <div>
                     <div className="ap-smodal__title">Change Appointment Status</div>
@@ -422,7 +418,6 @@ export default function AdminAppointment() {
                         <svg viewBox="0 0 20 20" fill="currentColor" width="11" height="11"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
                         {statusModal.patient}
                       </span>
-                      &nbsp;·&nbsp;{statusModal.aptId}
                     </div>
                   </div>
                   <button className="ap-modal__close" onClick={closeStatusModal}>
@@ -432,7 +427,6 @@ export default function AdminAppointment() {
                   </button>
                 </div>
 
-                {/* Current badge */}
                 <div className="ap-smodal__current">
                   <span className="ap-smodal__current-label">Current status</span>
                   <span className={`ap-loz ap-loz--${statusConfig[statusModal.current].color}`}>
@@ -440,7 +434,6 @@ export default function AdminAppointment() {
                   </span>
                 </div>
 
-                {/* Option cards */}
                 <div className="ap-smodal__options">
                   {statusOptions.map(opt => {
                     const isSelected = pickedStatus === opt.key
@@ -475,7 +468,6 @@ export default function AdminAppointment() {
                   })}
                 </div>
 
-                {/* Footer */}
                 <div className="ap-smodal__footer">
                   <button className="ap-btn-ghost" onClick={closeStatusModal}>Cancel</button>
                   <button
@@ -523,7 +515,7 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Doctor <span className="ap-field__req">*</span></label>
                   <select className={`ap-field__input ap-field__select ${errors.doctor ? 'ap-field__input--err' : ''}`} name="doctor" value={form.doctor} onChange={handleChange}>
                     <option value="">Select doctor</option>
-                  {DOCTORS.length > 0 ? DOCTORS.map(d => <option key={d} value={d}>{d}</option>) : doctors.map(d => <option key={d} value={d}>{d}</option>)}
+                    {DOCTORS.length > 0 ? DOCTORS.map(d => <option key={d} value={d}>{d}</option>) : doctors.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   {errors.doctor && <span className="ap-field__err">{errors.doctor}</span>}
                 </div>
@@ -531,7 +523,7 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Department <span className="ap-field__req">*</span></label>
                   <select className={`ap-field__input ap-field__select ${errors.department ? 'ap-field__input--err' : ''}`} name="department" value={form.department} onChange={handleChange}>
                     <option value="">Select department</option>
-                  {DEPARTMENTS.length > 0 ? DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>) : departments.map(d => <option key={d} value={d}>{d}</option>)}
+                    {DEPARTMENTS.length > 0 ? DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>) : departments.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   {errors.department && <span className="ap-field__err">{errors.department}</span>}
                 </div>

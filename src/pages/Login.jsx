@@ -79,7 +79,7 @@ const Login = ({ role = "PATIENT" }) => {
           {/* Brand — centered */}
           <div className="brand">
             <img src={logoImage} alt="ApexHealth Logo" className="brand-logo" />
-            <span className="brand-name">ApexHealth<br />Bookings</span>
+            <span className="brand-name">Doctors United<br />Multispeciality Medicentre</span>
           </div>
 
           {/* Tagline — bottom left */}

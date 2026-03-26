@@ -91,7 +91,6 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
     align-items: center;
     gap: 5px;
     color: #64748B;
-
     svg { opacity: .5; }
   }
 
@@ -105,7 +104,6 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
 .db-crumb {
   font-size: 12.5px;
   font-weight: 500;
-
   &--root   { color: #475569; }
   &--active { color: #CBD5E1; font-weight: 600; }
 }
@@ -135,7 +133,6 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
     font-size: 12.5px;
     color: #CBD5E1;
     font-family: $font;
-
     &::placeholder { color: #475569; }
   }
 
@@ -298,7 +295,7 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
 // ─── Metric Cards (dark) ──────────────────────────────────────────────────────
 .mc-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
 
   @media (max-width: 1440px) { grid-template-columns: repeat(3, 1fr); }
@@ -494,54 +491,6 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
   }
 }
 
-// Dept rows (donut legend)
-.dept-rows {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dept-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-
-  &__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-
-  &__name {
-    flex: 1;
-    font-size: 11px;
-    color: $t-sub;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &__track {
-    width: 52px;
-    height: 4px;
-    background: $bg-sunken;
-    border-radius: 99px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  &__pct {
-    width: 26px;
-    font-size: 11px;
-    font-weight: 700;
-    color: $t-hi;
-    text-align: right;
-    flex-shrink: 0;
-  }
-}
-
 // Chart tooltip
 .ctip {
   background: #1E293B;
@@ -565,7 +514,6 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
     font-size: 11.5px;
     color: #94A3B8;
     margin-bottom: 3px;
-
     strong { margin-left: auto; color: #F1F5F9; font-weight: 700; }
   }
 
@@ -577,314 +525,164 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
   }
 }
 
-// ─── Module Cards ─────────────────────────────────────────────────────────────
-.modc-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+// ─── Jira-style Activity Feed ─────────────────────────────────────────────────
 
-  @media (max-width: 1160px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 680px)  { grid-template-columns: 1fr; }
+.jira-feed {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 340px;
+  padding-left: 2px;
+
+  // vertical connector line running behind all dots
+  &__line {
+    position: absolute;
+    left: 9px;       // centres on the 20px dot
+    top: 20px;
+    bottom: 20px;
+    width: 1px;
+    background: $ph-border;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  // custom scrollbar
+  &::-webkit-scrollbar       { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: $ph-border; border-radius: 99px; }
 }
 
-.modc {
-  background: $bg-card;
-  border: 1px solid $ph-border;
-  border-radius: $r-lg;
-  padding: 16px;
-  box-shadow: $sh1;
-  transition: box-shadow .15s, transform .15s;
+.jira-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 4px 7px 0;
+  position: relative;
+  z-index: 1;
+  border-radius: $r-sm;
+  transition: background .12s;
+  cursor: default;
 
-  &:hover {
-    box-shadow: $sh2;
-    transform: translateY(-1px);
-  }
+  &:hover { background: $bg-sunken; }
 
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-
-  &__icon {
-    width: 34px;
-    height: 34px;
-    border-radius: $r-sm;
+  // coloured ring + inner filled dot — colours applied inline via style prop
+  &__dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid transparent; // overridden inline
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-  }
+    z-index: 2;
 
-  &__title {
-    flex: 1;
-    font-size: 13.5px;
-    font-weight: 700;
-    color: $t-hi;
-  }
-
-  &__cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 11.5px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: $r-sm;
-    text-decoration: none;
-    transition: opacity .12s, transform .12s;
-
-    &:hover { opacity: .75; transform: translateX(1px); }
+    span {
+      display: block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      // background overridden inline
+    }
   }
 
   &__body {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-
-  &__total {
-    font-size: 32px;
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -1.5px;
-  }
-
-  &__total-lbl {
-    font-size: 11px;
-    color: $t-sub;
-    margin-bottom: 5px;
-    display: block;
-  }
-
-  &__badge {
-    font-size: 10.5px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 4px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-
-    &--up   { background: #DCFCE7; color: #15803D; }
-    &--down { background: #FEF9C3; color: #854D0E; }
-  }
-
-  &__hr {
-    border: none;
-    border-top: 1px solid $ph-border;
-    margin-bottom: 12px;
-  }
-
-  &__stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    text-align: center;
-  }
-
-  &__stat {
-    background: $bg-sunken;
-    border-radius: $r-sm;
-    padding: 7px 4px;
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 3px;
+    padding-top: 1px;
   }
 
-  &__stat-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    margin-bottom: 2px;
-  }
-
-  &__stat-val {
-    font-size: 14px;
-    font-weight: 800;
-    color: $t-hi;
-    letter-spacing: -.3px;
-  }
-
-  &__stat-lbl {
-    font-size: 9.5px;
-    color: $t-sub;
-    font-weight: 500;
-  }
-}
-
-// ─── Right Aside (Activity) ───────────────────────────────────────────────────
-.db-aside {
-  width: 260px;
-  min-width: 260px;
-  border-left: 1px solid $ph-border;
-  background: $bg-card;
-  overflow-y: auto;
-
-  @media (max-width: 1180px) { display: none; }
-}
-
-.db-panel {
-  padding: 16px;
-
-  &__head {
+  &__row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 14px;
+    gap: 6px;
   }
 
-  &__title {
-    font-size: 10.5px;
-    font-weight: 700;
-    color: $t-faint;
-    letter-spacing: .09em;
-  }
-
-  &__link {
-    font-size: 11.5px;
+  &__name {
+    font-size: 12px;
     font-weight: 600;
-    color: $brand;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: $font;
+    color: $t-hi;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-    &:hover { text-decoration: underline; }
+  &__date {
+    font-size: 10px;
+    color: $t-faint;
+    flex-shrink: 0;
+  }
+
+  &__doctor {
+    font-size: 10.5px;
+    color: $t-sub;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
-// ─── Lozenge ──────────────────────────────────────────────────────────────────
-.loz {
-  display: inline-flex;
-  align-items: center;
+// Square-radius pills (Jira aesthetic — not rounded)
+.act-pill {
   font-size: 9.5px;
-  font-weight: 800;
-  padding: 2px 6px;
+  font-weight: 700;
+  padding: 2px 7px;
   border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  white-space: nowrap;
-  font-family: $font;
+  text-transform: capitalize;
+  letter-spacing: .03em;
   flex-shrink: 0;
 
-  &--new         { background: #E0F2FE; color: #0369A1; }
-  &--completed   { background: #DCFCE7; color: #15803D; }
-  &--payment     { background: #EDE9FE; color: #6D28D9; }
-  &--alert       { background: #FEF3C7; color: #B45309; }
-  &--rescheduled { background: #F3E8FF; color: #7C3AED; }
-  &--success     { background: #DCFCE7; color: #15803D; }
-  &--inprogress  { background: #DBEAFE; color: #1D4ED8; }
-  &--warning     { background: #FEF3C7; color: #B45309; }
+  &--accepted { background: #dcfce7; color: #15803d; }
+  &--pending  { background: #fef9c3; color: #92400e; }
+  &--rejected { background: #fee2e2; color: #b91c1c; }
 }
 
-// ─── Activity list ────────────────────────────────────────────────────────────
-.db-activity {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.db-activity__item {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 12px 0;
-  border-bottom: 1px solid $ph-border;
-
-  &:last-child { border-bottom: none; }
-}
-
-.db-activity__body { flex: 1; min-width: 0; }
-
-.db-activity__text {
-  font-size: 11.5px;
-  color: $t-hi;
-  font-weight: 500;
-  line-height: 1.45;
-  margin-bottom: 3px;
-  margin-top: 1px;
-}
-
-.db-activity__time {
-  font-size: 10px;
+.jira-empty {
+  font-size: 12px;
   color: $t-faint;
-}
-
-// ─── Activity icon ────────────────────────────────────────────────────────────
-.act-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: $r-sm;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 1px;
+  text-align: center;
+  padding: 24px 0;
 }
 
 // ─── Mobile Responsive (768px) ────────────────────────────────────────────────
 @media (max-width: 768px) {
 
-  // Stack sidebar above main
-  .db-shell {
-    flex-direction: column;
-  }
+  .db-shell { flex-direction: column; }
 
-  .db-main {
-    width: 100%;
-    overflow: visible;
-  }
+  .db-main { width: 100%; overflow: visible; }
 
-  // Topbar: tighter padding, hide search box & user meta
   .db-topbar {
     padding: 0 14px;
     height: 48px;
-
-    &__right {
-      gap: 6px;
-    }
+    &__right { gap: 6px; }
   }
 
-  .db-searchbox {
-    display: none; // hide full search on mobile
-  }
+  .db-searchbox { display: none; }
 
   .db-user {
-    &__meta { display: none; } // hide name/role on mobile
+    &__meta { display: none; }
   }
 
-  // Page header: stack title and pills
   .db-page-hdr {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
     padding: 14px 16px;
-
     &__title { font-size: 18px; }
-
-    &__pills {
-      flex-wrap: wrap;
-      gap: 6px;
-    }
+    &__pills { flex-wrap: wrap; gap: 6px; }
   }
 
-  // Body: reduce padding, allow scroll
   .db-body {
     flex-direction: column;
     overflow-y: visible;
-
-    &__left {
-      padding: 14px 12px;
-    }
+    &__left { padding: 14px 12px; }
   }
 
-  // ── Metric cards: 2-column compact grid ──────────────────────────────────
   .mc-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
@@ -892,109 +690,64 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
 
   .mc {
     padding: 10px 11px 10px;
-
     &__top { margin-bottom: 8px; }
-
     &__icon-wrap {
       width: 28px;
       height: 28px;
       border-radius: 5px;
-
       svg { width: 14px; height: 14px; }
     }
-
-    &__badge {
-      font-size: 9px;
-      padding: 2px 5px;
-    }
-
-    &__value {
-      font-size: 20px;
-      margin-bottom: 2px;
-    }
-
+    &__badge { font-size: 9px; padding: 2px 5px; }
+    &__value { font-size: 20px; margin-bottom: 2px; }
     &__label { font-size: 10.5px; }
-
-    &__sub {
-      font-size: 9.5px;
-      margin-bottom: 6px;
-    }
-
-    &__bar { margin-top: 8px; }
+    &__sub   { font-size: 9.5px; margin-bottom: 6px; }
+    &__bar   { margin-top: 8px; }
   }
 
-  // ── Analytics charts: single column ──────────────────────────────────────
-  .db-chart-row {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
+  .db-chart-row { grid-template-columns: 1fr; gap: 10px; }
 
   .db-card {
     padding: 14px 14px 12px;
-
-    &__head { margin-bottom: 10px; }
-
+    &__head  { margin-bottom: 10px; }
     &__title { font-size: 13px; }
   }
 
-  // ── Module cards: 1-column on mobile ─────────────────────────────────────
-  .modc-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
+  .db-eyebrow { margin-bottom: 8px; }
 
-  .modc {
-    padding: 14px;
+  .jira-feed  { max-height: 280px; }
 
-    &__total { font-size: 26px; }
+  .jira-item {
+    padding: 6px 4px 6px 0;
+    gap: 8px;
 
-    &__stats {
-      grid-template-columns: repeat(3, 1fr);
+    &__dot {
+      width: 17px;
+      height: 17px;
+      span { width: 6px; height: 6px; }
     }
+
+    &__name   { font-size: 11.5px; }
+    &__doctor { font-size: 10px;   }
+    &__date   { font-size: 9.5px;  }
   }
 
-  // ── Activity aside: show as a bottom panel on mobile ─────────────────────
-  .db-aside {
-    display: block;
-    width: 100%;
-    min-width: unset;
-    border-left: none;
-    border-top: 1px solid $ph-border;
-    max-height: 320px;
-    overflow-y: auto;
-  }
-
-  .db-panel {
-    padding: 14px 12px;
-  }
-
-  // Eyebrow spacing
-  .db-eyebrow {
-    margin-bottom: 8px;
-  }
+  .act-pill { font-size: 9px; padding: 1px 6px; }
 }
 
 // ─── Mobile Responsive (420px) ────────────────────────────────────────────────
 @media (max-width: 420px) {
 
-  .db-topbar {
-    padding: 0 10px;
-    height: 44px;
-  }
+  .db-topbar { padding: 0 10px; height: 44px; }
 
   .db-page-hdr {
     padding: 12px 10px;
-
     &__title { font-size: 16px; }
   }
 
   .db-body {
-    &__left {
-      padding: 12px 10px;
-    }
+    &__left { padding: 12px 10px; }
   }
 
-  // Keep 2-col metric cards even on tiny screens
   .mc-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 6px;
@@ -1002,27 +755,28 @@ $sh3:   0 8px 24px rgba(0,0,0,.14);
 
   .mc {
     padding: 9px 10px 9px;
-
     &__value { font-size: 18px; }
     &__label { font-size: 10px; }
-    &__sub   { font-size: 9px; }
-
+    &__sub   { font-size: 9px;  }
     &__icon-wrap {
       width: 24px;
       height: 24px;
-
       svg { width: 12px; height: 12px; }
     }
   }
 
-  .modc {
-    &__total { font-size: 24px; }
-    &__stat-val { font-size: 13px; }
-  }
-
   .db-crumb {
     font-size: 11px;
+    &--root { display: none; }
+  }
 
-    &--root { display: none; } // hide root crumb on tiny screens
+  .jira-feed { max-height: 240px; }
+
+  .jira-item {
+    &__dot {
+      width: 15px;
+      height: 15px;
+      span { width: 5px; height: 5px; }
+    }
   }
 }

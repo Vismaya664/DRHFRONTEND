@@ -48,23 +48,23 @@ $radius:       8px;
     );
   }
 
-  // Brand — horizontally centered, upper area
-  .brand {
-    position: absolute;
-    top: 7%;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    white-space: nowrap;
+ // Brand — left aligned
+.brand {
+  position: absolute;
+  top: 7%;
+  left: 44px;
+  transform: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
 
-    .brand-logo {
-      height: 72px;
-      width: auto;
-      object-fit: contain;
-      border-radius: 12px;
-    }
+  .brand-logo {
+    height: 72px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 12px;
+  }
 
     .brand-name {
       font-family: 'Barlow', sans-serif;
