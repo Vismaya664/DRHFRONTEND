@@ -6,36 +6,40 @@ import Doctorssidebar from "../../components/doctorssidebar";
 // ── SVG Icons ────────────────────────────────────────────────
 const Ico = ({ d, size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     {typeof d === "string" ? <path d={d} /> : d}
   </svg>
 );
 
 const IC = {
-  search:  <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></>,
-  bell:    <><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></>,
-  mail:    <><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M2 7l10 7 10-7" /></>,
-  cal:     <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
-  chevron: <path d="M9 18l6-6-6-6" />,
+  search:      <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></>,
+  bell:        <><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></>,
+  mail:        <><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M2 7l10 7 10-7" /></>,
+  cal:         <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
+  chevron:     <path d="M9 18l6-6-6-6" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
+  activity:    <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></>,
+  users:       <><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></>,
 };
 
-// Avatar colours based on initial
+// Avatar colours
 const AVATAR_COLORS = [
-  "linear-gradient(135deg,#22C5D4,#159BAB)",
+  "linear-gradient(135deg,#00D4C8,#0099BB)",
   "linear-gradient(135deg,#F5A623,#E08A10)",
-  "linear-gradient(135deg,#2DC98E,#1AA870)",
-  "linear-gradient(135deg,#F25C54,#D94040)",
-  "linear-gradient(135deg,#9B59B6,#7D3C98)",
+  "linear-gradient(135deg,#10D98C,#0AAD6E)",
+  "linear-gradient(135deg,#F25C54,#C93F38)",
+  "linear-gradient(135deg,#818CF8,#6366F1)",
 ];
 const avatarColor = (name = "") =>
   AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
 // ── Static fallback activity ──────────────────────────────────
 const STATIC_ACTIVITY = [
-  { patient: "sajith", doctor: "Dr. 004", date: "Mar 17", status: "accepted" },
-  { patient: "amal",   doctor: "Dr. 004", date: "Mar 18", status: "accepted" },
-  { patient: "sree",   doctor: "Dr. 004", date: "Mar 24", status: "accepted" },
+  { patient: "Sajith Kumar",  doctor: "Dr. 004", date: "Mar 17", status: "accepted" },
+  { patient: "Amal Raj",      doctor: "Dr. 004", date: "Mar 18", status: "accepted" },
+  { patient: "Sree Latha",    doctor: "Dr. 004", date: "Mar 24", status: "accepted" },
+  { patient: "Mohammed Ali",  doctor: "Dr. 004", date: "Mar 25", status: "pending"  },
+  { patient: "Priya Nair",    doctor: "Dr. 004", date: "Mar 25", status: "pending"  },
 ];
 
 // ── Component ─────────────────────────────────────────────────
@@ -92,10 +96,10 @@ export default function Dashboard() {
         <header className="dsh-topbar">
           <div className="dsh-topbar-left">
             <div className="dsh-topbar-icon">
-              <Ico d={IC.cal} size={16} />
+              <Ico d={IC.cal} size={17} />
             </div>
             <div className="dsh-topbar-text">
-              <span className="dsh-topbar-title">Dashboard</span>
+              <span className="dsh-topbar-title">DOCTOR PORTAL</span>
               <span className="dsh-topbar-date">{today}</span>
             </div>
           </div>
@@ -103,7 +107,7 @@ export default function Dashboard() {
           <div className="dsh-topbar-right">
             <div className="dsh-status-pill">
               <span className="dsh-status-dot" />
-              System Normal
+              ONLINE
             </div>
             <button className="dsh-icon-btn"><Ico d={IC.mail} /></button>
             <button className="dsh-icon-btn">
@@ -123,9 +127,9 @@ export default function Dashboard() {
               <div className="dsh-stat-card">
                 <div className="dsh-stat-card__top">
                   <div className="dsh-stat-card__icon">
-                    <Ico d={IC.cal} size={16} />
+                    <Ico d={IC.cal} size={17} />
                   </div>
-                  <span className="dsh-stat-card__badge">+8%</span>
+                  {/* <span className="dsh-stat-card__badge">+8%</span> */}
                 </div>
                 <div className="dsh-stat-card__value">
                   {loading ? "—" : totalAppointments || 3}
@@ -135,7 +139,10 @@ export default function Dashboard() {
             </div>
 
             <div className="dsh-appt-hero">
-             
+              <div className="dsh-appt-hero-title">
+                Today's Schedule
+                <span>/ {loading ? "—" : tableRows.length} visits</span>
+              </div>
             </div>
           </div>
 
@@ -145,7 +152,8 @@ export default function Dashboard() {
             {/* APPOINTMENTS TABLE */}
             <div className="dsh-appt-card">
               <div className="dsh-card-hd">
-                {/* <span className="dsh-card-hd-title">Today's Appointments</span> */}
+                <Ico d={IC.users} size={14} />
+                <span className="dsh-card-hd-title">Appointments</span>
                 <span className="dsh-card-hd-count">{tableRows.length}</span>
                 <button className="dsh-see-all">
                   See All <Ico d={IC.chevron} size={11} />
@@ -203,9 +211,10 @@ export default function Dashboard() {
             {/* RECENT ACTIVITY */}
             <div className="dsh-act-card">
               <div className="dsh-card-hd">
-                <span className="dsh-card-hd-title">Recent Activity</span>
+                <Ico d={IC.activity} size={14} />
+                <span className="dsh-card-hd-title">Activity</span>
                 <button className="dsh-see-all">
-                  View All <Ico d={IC.chevron} size={11} />
+                  All <Ico d={IC.chevron} size={11} />
                 </button>
               </div>
               <div className="dsh-act-list">
