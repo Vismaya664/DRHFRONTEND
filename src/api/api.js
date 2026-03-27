@@ -153,8 +153,8 @@ export const deleteAppointment = async (appointmentId) => {
   return data;
 };
 
-export const getDoctorSlots = async (doctorCode, date) => {
-  const { data } = await api.get('/slots/', { params: { doctor_code: doctorCode, date } });
+export const getDoctorSlots = async ({ doctor_code, date }) => {
+  const { data } = await api.get('/slots/', { params: { doctor_code, date } });
   return data;
 };
 
