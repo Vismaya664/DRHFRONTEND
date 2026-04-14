@@ -1,9 +1,213 @@
-import { useState, useEffect } from 'react'
-import { getAdminAppointments, updateAppointmentStatus, deleteAppointment, getAllDoctors, getDepartments } from '../api/api'
+import { useState, useEffect, useRef } from 'react'
+import { getAdminAppointments, updateAppointmentStatus, deleteAppointment, getAllDoctors, getDepartments, bookAppointment, getDoctorSlots } from '../api/api'
 import Sidebar from '../components/Sidebar'
 import '../style/Adminappointment.scss'
 
 const initialAppointments = []
+
+// ── Helper: format time to 12-hour format ──────────────────────────────────
+function formatTime(t) {
+  if (!t) return ""
+  const [h, m] = t.split(":").map(Number)
+  const ampm = h >= 12 ? "PM" : "AM"
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2,"0")} ${ampm}`
+}
+
+// ── Helper: check if slot is disabled (within 1 hour or in past) ──────────
+function isSlotDisabled(slotStartTime, appointmentDate) {
+  if (!slotStartTime || !appointmentDate) return false
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const [year, month, day] = appointmentDate.split('-').map(Number)
+  const appointmentDayDate = new Date(year, month - 1, day); appointmentDayDate.setHours(0, 0, 0, 0)
+  if (appointmentDayDate > today) return false
+  if (appointmentDayDate < today) return true
+  const now = new Date()
+  const currentHours = now.getHours()
+  const currentMinutes = now.getMinutes()
+  const [slotHours, slotMinutes] = slotStartTime.split(':').map(Number)
+  const currentTimeInMinutes = currentHours * 60 + currentMinutes
+  const slotTimeInMinutes = slotHours * 60 + slotMinutes
+  const oneHourFromNowInMinutes = currentTimeInMinutes + 60
+  return slotTimeInMinutes < oneHourFromNowInMinutes
+}
+
+// ── Helper: group slots by timing (session) ────────────────────────────────
+function groupSlotsByTiming(rawSlots) {
+  const groups = new Map()
+  for (const s of rawSlots) {
+    const key = s.slot_number
+    if (!groups.has(key)) groups.set(key, { slno: key, slots: [] })
+    groups.get(key).slots.push(s)
+  }
+  return Array.from(groups.values()).map((g, idx) => {
+    const first = g.slots[0]
+    const last  = g.slots[g.slots.length - 1]
+    return {
+      slno:      g.slno,
+      label:     `Session ${idx + 1}`,
+      timeRange: `${formatTime(first.start_time)} – ${formatTime(last.end_time)}`,
+      slots:     g.slots,
+    }
+  })
+}
+
+// ── Admin Slot Modal ───────────────────────────────────────────────────────
+function AdminSlotModal({ groups, onConfirm, onClose, appointmentDate }) {
+  const [activeGroup, setActiveGroup] = useState(groups.length > 0 ? groups[0].slno : null)
+  const [selectedKey, setSelectedKey] = useState(null)
+  const ref = useRef(null)
+  const slotGridRef = useRef(null)
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener("mousedown", h)
+    return () => document.removeEventListener("mousedown", h)
+  }, [onClose])
+
+  useEffect(() => {
+    if (slotGridRef.current) {
+      setTimeout(() => {
+        const buttons = slotGridRef.current?.querySelectorAll('.slot-chip')
+        if (buttons && buttons.length > 0) {
+          for (let btn of buttons) {
+            if (!btn.disabled) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); break }
+          }
+        }
+      }, 50)
+    }
+  }, [activeGroup, groups])
+
+  const currentGroup = groups.find(g => g.slno === activeGroup)
+  const selectedSlot = groups.flatMap(g => g.slots).find(s => `${s.slot_number}_${s.start_time}` === selectedKey)
+
+  const switchGroup = slno => { setActiveGroup(slno); setSelectedKey(null) }
+
+  const pickSlot = s => {
+    if (s.status === 'Booked') return
+    // Admin can book any available slot, no 1-hour restriction
+    setSelectedKey(`${s.slot_number}_${s.start_time}`)
+  }
+
+  const confirm = () => {
+    if (!selectedKey || !selectedSlot) return
+    onConfirm({
+      slot_number: selectedSlot.slot_number,
+      start_time:  selectedSlot.start_time,
+      end_time:    selectedSlot.end_time,
+      display:     `${formatTime(selectedSlot.start_time)} – ${formatTime(selectedSlot.end_time)}`,
+    })
+    onClose()
+  }
+
+  if (groups.length === 0) {
+    return (
+      <div className="ap-modal-backdrop" onClick={onClose}>
+        <div className="ap-modal" onClick={e => e.stopPropagation()}>
+          <div className="ap-modal__header">
+            <div>
+              <div className="ap-modal__title">Select Appointment Time</div>
+              <div className="ap-modal__sub">No available slots for this date</div>
+            </div>
+            <button className="ap-modal__close" onClick={onClose}>
+              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <div className="ap-modal__footer">
+            <button type="button" className="ap-btn-ghost" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ap-modal-backdrop" onClick={onClose}>
+      <div className="ap-modal ap-slot-modal" onClick={e => e.stopPropagation()}>
+        <div className="ap-modal__header">
+          <div>
+            <div className="ap-modal__title">Select Appointment Time</div>
+            <div className="ap-modal__sub">{appointmentDate}</div>
+          </div>
+          <button className="ap-modal__close" onClick={onClose}>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Session tabs */}
+        <div className="ap-slot-tabs">
+          {groups.map(g => {
+            const vacantCount = g.slots.filter(s => s.status !== 'Booked').length
+            return (
+              <button key={g.slno} type="button"
+                className={`ap-slot-tab ${activeGroup === g.slno ? "ap-slot-tab--active" : ""}`}
+                onClick={() => switchGroup(g.slno)}>
+                <span className="ap-slot-tab__label">{g.label}</span>
+                <span className="ap-slot-tab__time">{g.timeRange}</span>
+                <span className="ap-slot-tab__count">{vacantCount} available</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="ap-modal__body ap-slot-modal__body">
+          <div className="ap-slot-legend">
+            <span className="ap-legend__item"><span className="ap-legend__dot ap-legend__dot--open"/> Available</span>
+            <span className="ap-legend__item"><span className="ap-legend__dot ap-legend__dot--sel"/> Selected</span>
+            <span className="ap-legend__item"><span className="ap-legend__dot ap-legend__dot--booked"/> Booked</span>
+          </div>
+
+          <div className="ap-slot-grid" ref={slotGridRef}>
+            {currentGroup?.slots.map(s => {
+              const key        = `${s.slot_number}_${s.start_time}`
+              const isBooked   = s.status === 'Booked'
+              const isSelected = selectedKey === key
+              
+              return (
+                <button key={key} type="button"
+                  disabled={isBooked}
+                  onClick={() => pickSlot(s)}
+                  className={[
+                    "ap-slot-chip",
+                    isBooked   ? "ap-slot-chip--booked"   : "",
+                    isSelected ? "ap-slot-chip--selected"  : "",
+                  ].join(" ").trim()}
+                  title={isBooked ? "This slot is booked" : ""}>
+                  <span className="ap-slot-chip__time">{formatTime(s.start_time)}</span>
+                  <span className="ap-slot-chip__label">
+                    {isBooked ? "Booked" : isSelected ? "Selected" : "Available"}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {selectedSlot && (
+            <div className="ap-slot-confirm-bar">
+              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+              </svg>
+              {formatTime(selectedSlot.start_time)} – {formatTime(selectedSlot.end_time)} selected
+            </div>
+          )}
+        </div>
+
+        <div className="ap-modal__footer">
+          <button className="ap-btn-ghost" type="button" onClick={onClose}>Cancel</button>
+          <button className="ap-btn-primary" type="button"
+            disabled={!selectedKey} onClick={confirm}
+            style={{ opacity: !selectedKey ? 0.45 : 1, cursor: !selectedKey ? 'not-allowed' : 'pointer' }}>
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const statusConfig = {
   accepted: { label: 'Accepted', color: 'green' },
@@ -39,7 +243,7 @@ const DEPARTMENTS = []
 const DOCTORS     = []
 const TYPES       = ['Consultation', 'Follow-up', 'Check-up', 'New Patient', 'Surgery Prep', 'Emergency']
 
-const emptyForm = { patient: '', phone: '', doctor: '', department: '', date: '', time: '', type: '', status: 'accepted' }
+const emptyForm = { patient: '', phone: '+91', doctor: '', department: '', date: '', time: '', type: '', status: 'accepted' }
 
 function generateId(list) {
   // Generate next sequential ID
@@ -54,12 +258,16 @@ export default function AdminAppointment() {
   const [selected, setSelected]         = useState(null)
   const [doctors, setDoctors]           = useState([])
   const [departments, setDepartments]   = useState([])
+  const [availableSlots, setAvailableSlots] = useState([])
   const [loading, setLoading]           = useState(true)
 
   // New appointment modal
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm]           = useState(emptyForm)
   const [errors, setErrors]       = useState({})
+  const [slotGroups, setSlotGroups]         = useState([])
+  const [slotModalOpen, setSlotModalOpen]   = useState(false)
+  const [selectedSlotData, setSelectedSlotData] = useState(null)
 
   // Status change modal
   const [statusModal, setStatusModal]   = useState(null)
@@ -108,7 +316,8 @@ export default function AdminAppointment() {
         setAppointments(mappedApts)
         
         if (Array.isArray(deptData)) {
-          setDepartments(deptData.map(d => d.name))
+          // keep department objects (code + name)
+          setDepartments(deptData.map(d => ({ code: d.code, name: d.name })))
         }
         
         console.log('[DEBUG] Successfully loaded appointments')
@@ -156,16 +365,21 @@ export default function AdminAppointment() {
     setErrors({}); 
     setModalOpen(true);
     
-    if (doctors.length === 0) {
-      try {
-        const doctorsData = await getAllDoctors();
-        setDoctors(doctorsData.map(d => d.name));
-      } catch (error) {
-        console.error('Failed to fetch doctors:', error);
+      if (doctors.length === 0) {
+        try {
+          const doctorsData = await getAllDoctors();
+          // keep doctor objects (code + name) so we can send doctor_code to backend
+          setDoctors(doctorsData.map(d => ({ code: d.code, name: d.name })));
+        } catch (error) {
+          console.error('Failed to fetch doctors:', error);
+        }
       }
-    }
   }
-  function closeModal() { setModalOpen(false) }
+  function closeModal() {
+    setModalOpen(false)
+    setSelectedSlotData(null)
+    setSlotGroups([])
+  }
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -173,10 +387,37 @@ export default function AdminAppointment() {
     if (errors[name]) setErrors(ev => ({ ...ev, [name]: '' }))
   }
 
+  // Fetch slots when user selects doctor + date
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!form.doctor || !form.date) return
+      try {
+        const resp = await getDoctorSlots({ doctor_code: form.doctor, date: form.date })
+        // API returns slots array
+        if (Array.isArray(resp)) {
+          const grouped = groupSlotsByTiming(resp)
+          setSlotGroups(grouped)
+          setSelectedSlotData(null) // clear previous selection
+        } else if (Array.isArray(resp?.slots)) {
+          const grouped = groupSlotsByTiming(resp.slots)
+          setSlotGroups(grouped)
+          setSelectedSlotData(null)
+        } else {
+          setSlotGroups([])
+        }
+      } catch (err) {
+        console.error('Failed to fetch slots:', err)
+        setSlotGroups([])
+      }
+    }
+    fetchSlots()
+  }, [form.doctor, form.date])
+
   function validate() {
-    const required = ['patient', 'doctor', 'department', 'date', 'time', 'type']
+    const required = ['patient', 'doctor', 'department', 'date']
     const next = {}
     required.forEach(k => { if (!form[k].trim()) next[k] = 'This field is required' })
+    if (!selectedSlotData) next.slot = 'Please select a time slot'
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -184,13 +425,58 @@ export default function AdminAppointment() {
   function handleSubmit(e) {
     e.preventDefault()
     if (!validate()) return
-    let displayTime = form.time
-    if (/^\d{2}:\d{2}$/.test(form.time)) {
-      const [h, m] = form.time.split(':').map(Number)
-      displayTime = `${String(h % 12 || 12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${h >= 12 ? 'PM' : 'AM'}`
+    if (!selectedSlotData) {
+      setErrors({ slot: 'Please select a time slot' })
+      return
     }
-    setAppointments(prev => [{ id: generateId(prev), patient: form.patient.trim(), doctor: form.doctor, department: form.department, date: form.date, time: displayTime, type: form.type, status: form.status, rawId: null }, ...prev])
-    closeModal()
+
+    // Build appointment datetime from date + selected slot start_time
+    const [year, month, day] = form.date.split('-').map(Number)
+    const [hours, minutes] = selectedSlotData.start_time.split(':').map(Number)
+    
+    // Create UTC datetime by treating IST time as UTC, then subtract IST offset (5:30)
+    const istAsUtcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
+    const istOffsetMs = (5 * 60 + 30) * 60 * 1000
+    const appointmentDate = new Date(istAsUtcDate.getTime() - istOffsetMs)
+
+    const payload = {
+      patient_name: form.patient.trim(),
+      phone_number: form.phone.trim() || null,
+      doctor_code: form.doctor,
+      department_code: form.department,
+      appointment_date: appointmentDate.toISOString(),
+      slot_number: selectedSlotData.slot_number
+    }
+
+    bookAppointment(payload)
+      .then(res => {
+        const apt = res.appointment
+        const dateObj = apt.appointment_date ? new Date(apt.appointment_date) : null
+        const formattedDate = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}` : form.date
+        const mapped = {
+          patient: apt.patient_name || form.patient.trim(),
+          phone: apt.phone_number || form.phone || 'N/A',
+          doctor: apt.doctor_name || apt.doctor_code || form.doctor,
+          department: apt.department_name || apt.department_code || form.department,
+          date: formattedDate,
+          time: apt.appointment_time_range || selectedSlotData.display,
+          status: apt.status || form.status,
+          type: form.type,
+          rawId: apt.id
+        }
+        setAppointments(prev => [{ id: generateId(prev), ...mapped }, ...prev])
+        setSelectedSlotData(null)
+        closeModal()
+      })
+      .catch(err => {
+        console.error('Failed to book appointment:', err)
+        const msg = err.response?.data || err.message || 'Failed to book appointment'
+        if (err.response?.data) {
+          setErrors(err.response.data)
+        } else {
+          alert(msg)
+        }
+      })
   }
 
   // ── status change ────────────────────────────────────────────────────────────
@@ -530,7 +816,7 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Doctor <span className="ap-field__req">*</span></label>
                   <select className={`ap-field__input ap-field__select ${errors.doctor ? 'ap-field__input--err' : ''}`} name="doctor" value={form.doctor} onChange={handleChange}>
                     <option value="">Select doctor</option>
-                    {DOCTORS.length > 0 ? DOCTORS.map(d => <option key={d} value={d}>{d}</option>) : doctors.map(d => <option key={d} value={d}>{d}</option>)}
+                    {DOCTORS.length > 0 ? DOCTORS.map(d => <option key={d} value={d}>{d}</option>) : doctors.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
                   </select>
                   {errors.doctor && <span className="ap-field__err">{errors.doctor}</span>}
                 </div>
@@ -538,7 +824,7 @@ export default function AdminAppointment() {
                   <label className="ap-field__label">Department <span className="ap-field__req">*</span></label>
                   <select className={`ap-field__input ap-field__select ${errors.department ? 'ap-field__input--err' : ''}`} name="department" value={form.department} onChange={handleChange}>
                     <option value="">Select department</option>
-                    {DEPARTMENTS.length > 0 ? DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>) : departments.map(d => <option key={d} value={d}>{d}</option>)}
+                    {DEPARTMENTS.length > 0 ? DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>) : departments.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
                   </select>
                   {errors.department && <span className="ap-field__err">{errors.department}</span>}
                 </div>
@@ -551,8 +837,29 @@ export default function AdminAppointment() {
                 </div>
                 <div className="ap-field">
                   <label className="ap-field__label">Time <span className="ap-field__req">*</span></label>
-                  <input className={`ap-field__input ${errors.time ? 'ap-field__input--err' : ''}`} type="time" name="time" value={form.time} onChange={handleChange} />
-                  {errors.time && <span className="ap-field__err">{errors.time}</span>}
+                  <button
+                    type="button"
+                    onClick={() => setSlotModalOpen(true)}
+                    disabled={!form.doctor || !form.date}
+                    className={`ap-field__input ${errors.slot ? 'ap-field__input--err' : ''}`}
+                    style={{
+                      textAlign: 'left',
+                      cursor: form.doctor && form.date ? 'pointer' : 'not-allowed',
+                      opacity: form.doctor && form.date ? 1 : 0.5,
+                      background: selectedSlotData ? '#f0fdf4' : '#ffffff',
+                      color: selectedSlotData ? '#15803d' : '#64748b',
+                      border: selectedSlotData ? '2px solid #86efac' : '1px solid #e2e8f0'
+                    }}>
+                    {selectedSlotData ? selectedSlotData.display : 'Select a time slot'}
+                  </button>
+                  {errors.slot && <span className="ap-field__err">{errors.slot}</span>}
+                </div>
+              </div>
+              <div className="ap-field-row">
+                <div className="ap-field">
+                  <label className="ap-field__label">Phone</label>
+                  <input className={`ap-field__input ${errors.phone ? 'ap-field__input--err' : ''}`} type="tel" name="phone" placeholder="+919876543210" value={form.phone} onChange={handleChange} />
+                  {errors.phone && <span className="ap-field__err">{errors.phone}</span>}
                 </div>
               </div>
               <div className="ap-field-row">
@@ -583,6 +890,19 @@ export default function AdminAppointment() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* ── Slot Selection Modal ──────────────────────────────────────────────── */}
+      {slotModalOpen && form.doctor && form.date && (
+        <AdminSlotModal
+          groups={slotGroups}
+          appointmentDate={form.date}
+          onConfirm={(slotData) => {
+            setSelectedSlotData(slotData)
+            setSlotModalOpen(false)
+          }}
+          onClose={() => setSlotModalOpen(false)}
+        />
       )}
     </div>
   )

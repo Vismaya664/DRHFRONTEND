@@ -119,6 +119,13 @@ $navbar-h:    72px;
   // inherits .navbar-link — no overrides needed
 }
 
+// ── Right section (CTA + Profile) ──────────────────────────
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 // ── CTA Button ─────────────────────────────────────────────
 .navbar-cta {
   display: inline-flex;
@@ -154,6 +161,35 @@ $navbar-h:    72px;
   }
 }
 
+// ── Profile Icon ───────────────────────────────────────────
+.profile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.15s ease;
+  flex-shrink: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    color: $white;
+  }
+
+  &:hover {
+    background: rgba(255,255,255,0.14);
+    transform: scale(1.05);
+  }
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
 // ── Hamburger ──────────────────────────────────────────────
 .navbar-hamburger {
   display: none;
@@ -178,6 +214,95 @@ $navbar-h:    72px;
     span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     span:nth-child(2) { opacity: 0; }
     span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  }
+}
+
+// ── Login Modal Popup ──────────────────────────────────────
+.login-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  z-index: 9998;
+}
+
+.login-modal-popup {
+  position: fixed;
+  top: 68px;
+  right: 2rem;
+  background: $pill-bg;
+  border: 1px solid $pill-border;
+  border-radius: 16px;
+  padding: 8px;
+  min-width: 180px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 9999;
+  animation: slideDown 0.2s ease;
+}
+
+.modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: 'DM Sans', sans-serif;
+
+  &:hover {
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.option-icon {
+  width: 32px;
+  height: 32px;
+  background: $orange;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    color: $white;
+  }
+}
+
+.option-label {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: $white;
+  letter-spacing: -0.01em;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -237,4 +362,42 @@ $navbar-h:    72px;
 
   .navbar-cta       { display: none; }
   .navbar-hamburger { display: flex; }
+
+  .navbar-right {
+    gap: 6px;
+  }
+
+  .profile-icon {
+    width: 32px;
+    height: 32px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .login-modal-popup {
+    top: 64px;
+    right: 1rem;
+    min-width: 160px;
+  }
+
+  .modal-option {
+    padding: 9px 10px;
+  }
+
+  .option-icon {
+    width: 28px;
+    height: 28px;
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .option-label {
+    font-size: 0.8rem;
+  }
 }
