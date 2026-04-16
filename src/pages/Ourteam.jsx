@@ -49,6 +49,7 @@ export default function OurTeam() {
   const [checkedSpecs, setCheckedSpecs] = useState([]);
   const [specSearch,   setSpecSearch]   = useState("");
   const [showAllSpecs, setShowAllSpecs] = useState(false);
+  const [doctorSearch, setDoctorSearch] = useState("");
   const [doctors,      setDoctors]      = useState([]);
   const [departments,  setDepartments]  = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -94,9 +95,20 @@ export default function OurTeam() {
   const visibleSpecs = showAllSpecs ? allMatchingSpecs : allMatchingSpecs.slice(0, initialShow);
   const hiddenCount  = Math.max(0, allMatchingSpecs.length - initialShow);
 
-  const filtered = checkedSpecs.length === 0
-    ? doctors
-    : doctors.filter((m) => checkedSpecs.includes(m.department));
+  const filtered = useMemo(() => {
+    let results = checkedSpecs.length === 0
+      ? doctors
+      : doctors.filter((m) => checkedSpecs.includes(m.department));
+    
+    // Apply doctor name search filter
+    if (doctorSearch.trim()) {
+      results = results.filter((doc) =>
+        doc.name.toLowerCase().includes(doctorSearch.toLowerCase())
+      );
+    }
+    
+    return results;
+  }, [doctors, checkedSpecs, doctorSearch]);
 
   const handleBookAppointment = useCallback((doctor) => {
     navigate("/request-appointment", { 
@@ -186,6 +198,29 @@ export default function OurTeam() {
 
             {/* ── Doctor cards ── */}
             <main className="ot-main">
+
+              <div className="ot-doctor-search">
+                <svg className="ot-doctor-search__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8.5" cy="8.5" r="5.5"/>
+                  <line x1="13" y1="13" x2="17" y2="17"/>
+                </svg>
+                <input
+                  type="text"
+                  className="ot-doctor-search__input"
+                  placeholder="Search doctors by name..."
+                  value={doctorSearch}
+                  onChange={(e) => setDoctorSearch(e.target.value)}
+                />
+                {doctorSearch && (
+                  <button 
+                    className="ot-doctor-search__clear"
+                    onClick={() => setDoctorSearch("")}
+                    aria-label="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
 
               <p className="ot-main-heading">
                 Nearby Specialists

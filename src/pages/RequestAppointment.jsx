@@ -81,7 +81,7 @@ function groupSlotsByTiming(rawSlots) {
     const last  = g.slots[g.slots.length - 1];
     return {
       slno:      g.slno,
-      label:     `Session ${idx + 1}`,
+      label:     `Shift ${idx + 1}`,
       timeRange: `${formatTime(first.start_time)} – ${formatTime(last.end_time)}`,
       slots:     g.slots,
     };
