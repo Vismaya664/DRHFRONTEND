@@ -129,28 +129,43 @@ function DoctorCard({ doctor, onBook }) {
 // ─── Booking Modal ─────────────────────────────────────────────
 function BookingModal({ doctor, onClose }) {
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", date: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", date: "" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setError("");
+  };
   
   const handleSubmit = async () => { 
-    if (form.name && form.phone && form.date) {
-      setLoading(true);
-      try {
-        await bookAppointment({
-          patient_name: form.name,
-          doctor_code: doctor.code,
-          department_code: doctor.department,
-          appointment_date: new Date(form.date).toISOString()
-        });
-        setSubmitted(true);
-      } catch (error) {
-        console.error('Failed to book appointment:', error);
-        alert('Failed to book appointment. Please try again.');
-      } finally {
-        setLoading(false);
-      }
+    if (!form.name || !form.email || !form.phone || !form.date) {
+      setError("All fields are required");
+      return;
+    }
+    
+    if (!form.email.includes("@")) {
+      setError("Please enter a valid email");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await bookAppointment({
+        patient_name: form.name,
+        phone_number: form.phone,
+        email: form.email,
+        doctor_code: doctor.code,
+        department_code: doctor.department,
+        appointment_date: new Date(form.date).toISOString(),
+        slot_number: 1
+      });
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Failed to book appointment:', error);
+      setError(error.response?.data?.detail || 'Failed to book appointment. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -169,6 +184,7 @@ function BookingModal({ doctor, onClose }) {
 
             {[
               { label: "Your Name",      name: "name",  type: "text", placeholder: "Full name" },
+              { label: "Email Address",  name: "email", type: "email", placeholder: "your.email@example.com" },
               { label: "Phone Number",   name: "phone", type: "tel",  placeholder: "+91 98765 43210" },
               { label: "Preferred Date", name: "date",  type: "date", placeholder: "" },
             ].map(({ label, name, type, placeholder }) => (
@@ -184,6 +200,8 @@ function BookingModal({ doctor, onClose }) {
                 />
               </div>
             ))}
+
+            {error && <p className="ba-modal__error" style={{ color: 'red', marginBottom: '10px' }}>{error}</p>}
 
             <button className="ba-modal__submit" onClick={handleSubmit} disabled={loading}>
               {loading ? 'Booking...' : 'Confirm Appointment'}
