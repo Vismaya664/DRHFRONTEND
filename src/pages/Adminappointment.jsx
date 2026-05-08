@@ -368,8 +368,8 @@ export default function AdminAppointment() {
       if (doctors.length === 0) {
         try {
           const doctorsData = await getAllDoctors();
-          // keep doctor objects (code + name) so we can send doctor_code to backend
-          setDoctors(doctorsData.map(d => ({ code: d.code, name: d.name })));
+          // keep doctor objects (code + name + department) for auto-population
+          setDoctors(doctorsData.map(d => ({ code: d.code, name: d.name, department: d.department })));
         } catch (error) {
           console.error('Failed to fetch doctors:', error);
         }
@@ -386,6 +386,18 @@ export default function AdminAppointment() {
     setForm(f => ({ ...f, [name]: value }))
     if (errors[name]) setErrors(ev => ({ ...ev, [name]: '' }))
   }
+
+  // Auto-populate department when doctor is selected
+  useEffect(() => {
+    if (!form.doctor || doctors.length === 0) {
+      return
+    }
+    
+    const selectedDoctor = doctors.find(d => d.code === form.doctor)
+    if (selectedDoctor && selectedDoctor.department) {
+      setForm(f => ({ ...f, department: selectedDoctor.department }))
+    }
+  }, [form.doctor, doctors])
 
   // Fetch slots when user selects doctor + date
   useEffect(() => {
