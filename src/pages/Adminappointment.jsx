@@ -245,12 +245,6 @@ const TYPES       = ['Consultation', 'Follow-up', 'Check-up', 'New Patient', 'Su
 
 const emptyForm = { patient: '', phone: '+91', doctor: '', department: '', date: '', time: '', type: '', status: 'accepted' }
 
-function generateId(list) {
-  // Generate next sequential ID
-  const maxId = list.length > 0 ? Math.max(...list.map(a => a.id)) : 0
-  return maxId + 1
-}
-
 export default function AdminAppointment() {
   const [appointments, setAppointments] = useState(initialAppointments)
   const [search, setSearch]             = useState('')
@@ -291,15 +285,16 @@ export default function AdminAppointment() {
           throw new Error('Appointments data is not an array');
         }
         
-        // Sort appointments by creation date (newest first) and assign sequential IDs
+        // Sort appointments by creation date (newest first)
         const sortedApts = appointmentsData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         
-        const mappedApts = sortedApts.map((apt, index) => {
+        const mappedApts = sortedApts.map((apt) => {
           const dateObj = apt.appointment_date ? new Date(apt.appointment_date) : null
           const formattedDate = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}` : 'N/A'
           
           return {
-            id: index + 1,  // Sequential ID: 1, 2, 3...
+            // Use rawId as the stable internal key; display number comes from filtered index
+            id: apt.id,
             patient: apt.patient_name || 'Unknown',
             phone: apt.phone_number || 'N/A',
             doctor: apt.doctor_name || apt.doctor_code || 'Unknown',
@@ -316,7 +311,6 @@ export default function AdminAppointment() {
         setAppointments(mappedApts)
         
         if (Array.isArray(deptData)) {
-          // keep department objects (code + name)
           setDepartments(deptData.map(d => ({ code: d.code, name: d.name })))
         }
         
@@ -365,16 +359,16 @@ export default function AdminAppointment() {
     setErrors({}); 
     setModalOpen(true);
     
-      if (doctors.length === 0) {
-        try {
-          const doctorsData = await getAllDoctors();
-          // keep doctor objects (code + name + department) for auto-population
-          setDoctors(doctorsData.map(d => ({ code: d.code, name: d.name, department: d.department })));
-        } catch (error) {
-          console.error('Failed to fetch doctors:', error);
-        }
+    if (doctors.length === 0) {
+      try {
+        const doctorsData = await getAllDoctors();
+        setDoctors(doctorsData.map(d => ({ code: d.code, name: d.name, department: d.department })));
+      } catch (error) {
+        console.error('Failed to fetch doctors:', error);
       }
+    }
   }
+
   function closeModal() {
     setModalOpen(false)
     setSelectedSlotData(null)
@@ -405,11 +399,10 @@ export default function AdminAppointment() {
       if (!form.doctor || !form.date) return
       try {
         const resp = await getDoctorSlots({ doctor_code: form.doctor, date: form.date })
-        // API returns slots array
         if (Array.isArray(resp)) {
           const grouped = groupSlotsByTiming(resp)
           setSlotGroups(grouped)
-          setSelectedSlotData(null) // clear previous selection
+          setSelectedSlotData(null)
         } else if (Array.isArray(resp?.slots)) {
           const grouped = groupSlotsByTiming(resp.slots)
           setSlotGroups(grouped)
@@ -442,11 +435,9 @@ export default function AdminAppointment() {
       return
     }
 
-    // Build appointment datetime from date + selected slot start_time
     const [year, month, day] = form.date.split('-').map(Number)
     const [hours, minutes] = selectedSlotData.start_time.split(':').map(Number)
     
-    // Create UTC datetime by treating IST time as UTC, then subtract IST offset (5:30)
     const istAsUtcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
     const istOffsetMs = (5 * 60 + 30) * 60 * 1000
     const appointmentDate = new Date(istAsUtcDate.getTime() - istOffsetMs)
@@ -466,6 +457,8 @@ export default function AdminAppointment() {
         const dateObj = apt.appointment_date ? new Date(apt.appointment_date) : null
         const formattedDate = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}` : form.date
         const mapped = {
+          // Use the real API id as stable key
+          id: apt.id,
           patient: apt.patient_name || form.patient.trim(),
           phone: apt.phone_number || form.phone || 'N/A',
           doctor: apt.doctor_name || apt.doctor_code || form.doctor,
@@ -476,7 +469,8 @@ export default function AdminAppointment() {
           type: form.type,
           rawId: apt.id
         }
-        setAppointments(prev => [{ id: generateId(prev), ...mapped }, ...prev])
+        // Prepend new appointment so it appears first (row #1)
+        setAppointments(prev => [mapped, ...prev])
         setSelectedSlotData(null)
         closeModal()
       })
@@ -504,7 +498,7 @@ export default function AdminAppointment() {
   function confirmStatusChange() {
     if (!pickedStatus || pickedStatus === statusModal.current) { closeStatusModal(); return }
     
-    const aptId = statusModal.rawId  // Use rawId for API call
+    const aptId = statusModal.rawId
     updateAppointmentStatus(aptId, pickedStatus)
       .then(() => {
         setAppointments(prev => prev.map(a => a.id === statusModal.aptId ? { ...a, status: pickedStatus } : a))
@@ -519,7 +513,7 @@ export default function AdminAppointment() {
 
   function handleDeleteAppointment(apt) {
     if (window.confirm(`Are you sure you want to delete the appointment for ${apt.patient}?`)) {
-      const aptId = apt.rawId  // Use rawId for API call
+      const aptId = apt.rawId
       deleteAppointment(aptId)
         .then(() => {
           setAppointments(prev => prev.filter(a => a.id !== apt.id))
@@ -629,7 +623,6 @@ export default function AdminAppointment() {
               <table className="ap-table">
                 <thead>
                   <tr>
-                    {/* ── CHANGED: ID → No. ── */}
                     <th>No.</th><th>Patient</th><th>Phone</th><th>Doctor</th><th>Department</th>
                     <th>Date & Time</th><th>Type</th><th>Status</th><th>Actions</th>
                   </tr>
@@ -637,12 +630,12 @@ export default function AdminAppointment() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr><td colSpan="9" className="ap-empty">No appointments found</td></tr>
-                  ) : filtered.map((a, index) => {
+                  ) : filtered.map((a, rowIndex) => {
                     const sc = statusConfig[a.status] || { label: a.status, color: 'gray' }
                     return (
                       <tr key={a.id} className={selected === a.id ? 'ap-row--selected' : ''} onClick={() => setSelected(a.id === selected ? null : a.id)}>
-                        {/* ── Shows sequential ID: 1, 2, 3... ── */}
-                        <td><span className="ap-id">{a.id}</span></td>
+                        {/* ── Always shows 1,2,3... based on current filtered/visible position ── */}
+                        <td><span className="ap-id">{rowIndex + 1}</span></td>
                         <td>
                           <div className="ap-patient">
                             <div className="ap-avatar">{a.patient.split(' ').map(n => n[0]).join('')}</div>
